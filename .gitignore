@@ -1,0 +1,11 @@
+# Build artifacts
+build/
+cmake-build-*/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.idea/
+.vscode/
