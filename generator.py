@@ -3,14 +3,34 @@ from __future__ import annotations
 import atexit
 import ctypes
 import multiprocessing as mp
+import os
 import numpy as np
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 from tqdm import tqdm
 
 
-DEEPCIRCUS_DIR = Path(__file__).resolve().parents[1]
-LIBRARY = DEEPCIRCUS_DIR / "build" / "libgenerator.so"
+_LIBRARY_NAME = "libgenerator.so"
+
+
+def _find_library() -> Path:
+    # Locate libgenerator.so relative to this module, so the same file works
+    # whether bool-bench is checked out standalone (built into ./build) or used
+    # as a submodule whose .so is built into the superproject's build dir.
+    # BOOL_BENCH_LIBRARY overrides discovery with an explicit path.
+    override = os.environ.get("BOOL_BENCH_LIBRARY")
+    if override:
+        return Path(override)
+    here = Path(__file__).resolve().parent
+    for base in (here, *here.parents):
+        for build_dir in ("build", "cmake-build-debug"):
+            candidate = base / build_dir / _LIBRARY_NAME
+            if candidate.exists():
+                return candidate
+    return here / "build" / _LIBRARY_NAME
+
+
+LIBRARY = _find_library()
 
 _WORKER_GENERATOR = None
 _FLEET = None
