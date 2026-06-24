@@ -2,6 +2,9 @@
 build/
 cmake-build-*/
 
+# Execution artifacts
+tmp
+
 # Python
 __pycache__/
 *.py[cod]
