@@ -1,4 +1,4 @@
-#include "generator.h"
+#include "bool_bench.h"
 #include "decision_tree.h"
 #include "small_bitness.h"
 
