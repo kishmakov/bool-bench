@@ -2,7 +2,7 @@ import ctypes
 from pathlib import Path
 
 
-LIBRARY = Path(__file__).resolve().parents[1] / "build" / "libgenerator.so"
+LIBRARY = Path(__file__).resolve().parent / "build" / "libgenerator.so"
 
 GOLDEN_VALUES = {
     (2, 3, "01"): "01001",
