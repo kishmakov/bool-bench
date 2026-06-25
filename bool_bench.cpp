@@ -139,28 +139,28 @@ const DecisionTree& GetRandomTree(uint16_t bitness, size_t case_id) {
 
 // API
 
-size_t generator_get_cases_number(uint16_t bitness) {
+size_t bb_get_cases_number(uint16_t bitness) {
     return IsSmallBitness(bitness)
         ? SmallBitnessCasesNumber(bitness)
         : kCasesNumber;
 }
 
-size_t generator_case_nodes(uint16_t bitness, size_t case_id) {
-    assert(case_id < generator_get_cases_number(bitness));
+size_t bb_case_nodes(uint16_t bitness, size_t case_id) {
+    assert(case_id < bb_get_cases_number(bitness));
 
     const DecisionTree& tree = GetRandomTree(bitness, case_id);
     return tree.nodes.size() - tree.num_leafs;
 }
 
-size_t generator_case_depth(uint16_t bitness, size_t case_id) {
-    assert(case_id < generator_get_cases_number(bitness));
+size_t bb_case_depth(uint16_t bitness, size_t case_id) {
+    assert(case_id < bb_get_cases_number(bitness));
 
     const DecisionTree& tree = GetRandomTree(bitness, case_id);
     return tree.depth;
 }
 
-const char* generator_case_active_bits(uint16_t bitness, size_t case_id) {
-    assert(case_id < generator_get_cases_number(bitness));
+const char* bb_case_active_bits(uint16_t bitness, size_t case_id) {
+    assert(case_id < bb_get_cases_number(bitness));
 
     thread_local std::string active_bits;
     const DecisionTree& tree = GetRandomTree(bitness, case_id);
@@ -174,8 +174,8 @@ const char* generator_case_active_bits(uint16_t bitness, size_t case_id) {
     return active_bits.c_str();
 }
 
-const char* generator_case_value(uint16_t bitness, size_t case_id, const char* input) {
-    assert(case_id < generator_get_cases_number(bitness));
+const char* bb_case_value(uint16_t bitness, size_t case_id, const char* input) {
+    assert(case_id < bb_get_cases_number(bitness));
     assert(input != nullptr);
     assert(std::strlen(input) == bitness);
 
@@ -191,8 +191,8 @@ const char* generator_case_value(uint16_t bitness, size_t case_id, const char* i
     return value.c_str();
 }
 
-const char* generator_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
-    assert(case_id < generator_get_cases_number(bitness));
+const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
+    assert(case_id < bb_get_cases_number(bitness));
     assert(bitness > 0);
 
     thread_local std::string value;
@@ -226,7 +226,7 @@ const char* generator_case_restrictions(uint16_t bitness, size_t case_id, size_t
     return value.c_str();
 }
 
-const char* generator_parity_value(uint16_t bitness, const char* input) {
+const char* bb_parity_value(uint16_t bitness, const char* input) {
     assert(input != nullptr);
     assert(std::strlen(input) == bitness);
 
@@ -241,7 +241,7 @@ const char* generator_parity_value(uint16_t bitness, const char* input) {
     return value.c_str();
 }
 
-const char* generator_parity_restrictions(uint16_t bitness, size_t rep) {
+const char* bb_parity_restrictions(uint16_t bitness, size_t rep) {
     assert(bitness > 0);
 
     thread_local std::string value;

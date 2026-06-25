@@ -59,59 +59,59 @@ class Generator:
     def _load_library(self) -> ctypes.CDLL:
         library = ctypes.CDLL(self.library_path)
 
-        library.generator_get_cases_number.argtypes = [ctypes.c_uint16]
-        library.generator_get_cases_number.restype = ctypes.c_size_t
+        library.bb_get_cases_number.argtypes = [ctypes.c_uint16]
+        library.bb_get_cases_number.restype = ctypes.c_size_t
 
-        library.generator_case_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.generator_case_nodes.restype = ctypes.c_size_t
+        library.bb_case_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_case_nodes.restype = ctypes.c_size_t
 
-        library.generator_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.generator_case_depth.restype = ctypes.c_size_t
+        library.bb_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_case_depth.restype = ctypes.c_size_t
 
-        library.generator_case_active_bits.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.generator_case_active_bits.restype = ctypes.c_char_p
+        library.bb_case_active_bits.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_case_active_bits.restype = ctypes.c_char_p
 
-        library.generator_case_value.argtypes = [
+        library.bb_case_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_char_p,
         ]
-        library.generator_case_value.restype = ctypes.c_char_p
+        library.bb_case_value.restype = ctypes.c_char_p
 
-        library.generator_case_restrictions.argtypes = [
+        library.bb_case_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_size_t,
         ]
-        library.generator_case_restrictions.restype = ctypes.c_char_p
+        library.bb_case_restrictions.restype = ctypes.c_char_p
 
-        library.generator_parity_value.argtypes = [
+        library.bb_parity_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_char_p,
         ]
-        library.generator_parity_value.restype = ctypes.c_char_p
+        library.bb_parity_value.restype = ctypes.c_char_p
 
-        library.generator_parity_restrictions.argtypes = [
+        library.bb_parity_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
         ]
-        library.generator_parity_restrictions.restype = ctypes.c_char_p
+        library.bb_parity_restrictions.restype = ctypes.c_char_p
         return library
 
     def cases_number(self, bitness: int) -> int:
-        return int(self.library.generator_get_cases_number(bitness))
+        return int(self.library.bb_get_cases_number(bitness))
 
     def case_nodes(self, bitness: int, case_id: int) -> int:
-        return int(self.library.generator_case_nodes(bitness, case_id))
+        return int(self.library.bb_case_nodes(bitness, case_id))
 
     def case_depth(self, bitness: int, case_id: int) -> int:
-        return int(self.library.generator_case_depth(bitness, case_id))
+        return int(self.library.bb_case_depth(bitness, case_id))
 
     def case_active_bits(self, bitness: int, case_id: int) -> str:
-        return self.library.generator_case_active_bits(bitness, case_id).decode("ascii")
+        return self.library.bb_case_active_bits(bitness, case_id).decode("ascii")
 
     def case_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
-        value = self.library.generator_case_value(
+        value = self.library.bb_case_value(
             bitness,
             case_id,
             input_bits.encode("ascii"),
@@ -133,7 +133,7 @@ class Generator:
         return samples
 
     def case_restrictions(self, bitness: int, case_id: int, rep: int) -> np.ndarray:
-        value = self.library.generator_case_restrictions(
+        value = self.library.bb_case_restrictions(
             bitness,
             case_id,
             rep,
@@ -143,14 +143,14 @@ class Generator:
         return signed.reshape(bitness * 2, point_dim)
 
     def parity_value(self, bitness: int, input_bits: str) -> np.ndarray:
-        value = self.library.generator_parity_value(
+        value = self.library.bb_parity_value(
             bitness,
             input_bits.encode("ascii"),
         )
         return _ascii_bits_to_signed(value, sample_point_dim(bitness))
 
     def parity_restrictions(self, bitness: int, rep: int) -> np.ndarray:
-        value = self.library.generator_parity_restrictions(
+        value = self.library.bb_parity_restrictions(
             bitness,
             rep,
         )

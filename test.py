@@ -21,43 +21,43 @@ GOLDEN_VALUES = {
 def load_library():
     library = ctypes.CDLL(str(LIBRARY))
 
-    library.generator_get_cases_number.argtypes = [ctypes.c_uint16]
-    library.generator_get_cases_number.restype = ctypes.c_size_t
+    library.bb_get_cases_number.argtypes = [ctypes.c_uint16]
+    library.bb_get_cases_number.restype = ctypes.c_size_t
 
-    library.generator_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.generator_case_depth.restype = ctypes.c_size_t
+    library.bb_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_case_depth.restype = ctypes.c_size_t
 
-    library.generator_case_value.argtypes = [
+    library.bb_case_value.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
         ctypes.c_char_p,
     ]
-    library.generator_case_value.restype = ctypes.c_char_p
+    library.bb_case_value.restype = ctypes.c_char_p
 
-    library.generator_case_restrictions.argtypes = [
+    library.bb_case_restrictions.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
         ctypes.c_size_t,
     ]
-    library.generator_case_restrictions.restype = ctypes.c_char_p
+    library.bb_case_restrictions.restype = ctypes.c_char_p
 
-    library.generator_parity_value.argtypes = [
+    library.bb_parity_value.argtypes = [
         ctypes.c_uint16,
         ctypes.c_char_p,
     ]
-    library.generator_parity_value.restype = ctypes.c_char_p
+    library.bb_parity_value.restype = ctypes.c_char_p
 
-    library.generator_parity_restrictions.argtypes = [
+    library.bb_parity_restrictions.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
     ]
-    library.generator_parity_restrictions.restype = ctypes.c_char_p
+    library.bb_parity_restrictions.restype = ctypes.c_char_p
 
     return library
 
 
 def case_value(library, bitness, case_id, input_bits):
-    return library.generator_case_value(
+    return library.bb_case_value(
         bitness,
         case_id,
         input_bits.encode("ascii"),
@@ -65,21 +65,21 @@ def case_value(library, bitness, case_id, input_bits):
 
 
 def test_case_value(library):
-    print(f"Check generator_case_value ...")
+    print(f"Check bb_case_value ...")
 
     for (bitness, case_id, input_bits), expected in GOLDEN_VALUES.items():
-        assert case_id < library.generator_get_cases_number(bitness)
+        assert case_id < library.bb_get_cases_number(bitness)
         assert case_value(library, bitness, case_id, input_bits) == expected
 
 
 def test_case_restrictions(library):
-    print(f"Check generator_case_restrictions ...")
+    print(f"Check bb_case_restrictions ...")
 
     for bitness, case_id, _ in GOLDEN_VALUES:
         free_bits = bitness - 1
         sample_size = 2 * free_bits + 1
 
-        value = library.generator_case_restrictions(
+        value = library.bb_case_restrictions(
             bitness,
             case_id,
             0,
@@ -114,14 +114,14 @@ def test_case_restrictions(library):
 
 
 def parity_value(library, bitness, input_bits):
-    return library.generator_parity_value(
+    return library.bb_parity_value(
         bitness,
         input_bits.encode("ascii"),
     ).decode("ascii")
 
 
 def test_parity_value(library):
-    print(f"Check generator_parity_value ...")
+    print(f"Check bb_parity_value ...")
 
     for input_bits in ["0", "1", "0101", "1110", "101101"]:
         bitness = len(input_bits)
@@ -134,13 +134,13 @@ def test_parity_value(library):
 
 
 def test_parity_restrictions(library):
-    print(f"Check generator_parity_restrictions ...")
+    print(f"Check bb_parity_restrictions ...")
 
     for bitness in [1, 2, 4, 6]:
         free_bits = bitness - 1
         sample_size = 2 * free_bits + 1
 
-        value = library.generator_parity_restrictions(
+        value = library.bb_parity_restrictions(
             bitness,
             0,
         ).decode("ascii")
@@ -174,10 +174,10 @@ def test_parity_restrictions(library):
 
 
 def test_case_depth(library):
-    print(f"Check generator_case_depth ...")
+    print(f"Check bb_case_depth ...")
 
     for bitness, case_id, _ in GOLDEN_VALUES:
-        depth = library.generator_case_depth(bitness, case_id)
+        depth = library.bb_case_depth(bitness, case_id)
         assert 0 <= depth <= bitness
 
 
