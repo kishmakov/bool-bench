@@ -53,7 +53,39 @@ def load_library():
     ]
     library.bb_parity_restrictions.restype = ctypes.c_char_p
 
+    library.bb_circuit_sets.argtypes = []
+    library.bb_circuit_sets.restype = ctypes.c_char_p
+
+    library.bb_circuit_cases.argtypes = [ctypes.c_char_p]
+    library.bb_circuit_cases.restype = ctypes.c_char_p
+
+    library.bb_circuit_inputs.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    library.bb_circuit_inputs.restype = ctypes.c_size_t
+
+    library.bb_circuit_outputs.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    library.bb_circuit_outputs.restype = ctypes.c_size_t
+
+    library.bb_circuit_value.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+    ]
+    library.bb_circuit_value.restype = ctypes.c_char_p
+
     return library
+
+
+def split_list(value):
+    text = value.decode("ascii")
+    return [] if not text else text.split("\n")
+
+
+def circuit_value(library, set_name, case_name, input_state):
+    return library.bb_circuit_value(
+        set_name.encode("ascii"),
+        case_name.encode("ascii"),
+        input_state.encode("ascii"),
+    ).decode("ascii")
 
 
 def case_value(library, bitness, case_id, input_bits):
@@ -181,6 +213,39 @@ def test_case_depth(library):
         assert 0 <= depth <= bitness
 
 
+def test_circuit_discovery(library):
+    print(f"Check bb_circuit discovery ...")
+
+    sets = split_list(library.bb_circuit_sets())
+    assert "iscas85" in sets
+    assert "iscas87" in sets
+
+    assert split_list(library.bb_circuit_cases(b"iscas85")) == ["c17"]
+    assert split_list(library.bb_circuit_cases(b"iscas87")) == ["s27"]
+
+
+def test_circuit_metadata(library):
+    print(f"Check bb_circuit metadata ...")
+
+    assert library.bb_circuit_inputs(b"iscas85", b"c17") == 5
+    assert library.bb_circuit_outputs(b"iscas85", b"c17") == 2
+
+    assert library.bb_circuit_inputs(b"iscas87", b"s27") == 7
+    assert library.bb_circuit_outputs(b"iscas87", b"s27") == 1
+
+
+def test_circuit_value(library):
+    print(f"Check bb_circuit_value ...")
+
+    c17 = circuit_value(library, "iscas85", "c17", "00000")
+    assert len(c17) == 5 + 2 * 6
+    assert c17 == circuit_value(library, "iscas85", "c17", "00000")
+
+    s27 = circuit_value(library, "iscas87", "s27", "0000000")
+    assert len(s27) == 7 + 1 * 8
+    assert s27 == circuit_value(library, "iscas87", "s27", "0000000")
+
+
 if __name__ == "__main__":
     library = load_library()
     test_case_value(library)
@@ -188,3 +253,6 @@ if __name__ == "__main__":
     test_parity_value(library)
     test_parity_restrictions(library)
     test_case_depth(library)
+    test_circuit_discovery(library)
+    test_circuit_metadata(library)
+    test_circuit_value(library)

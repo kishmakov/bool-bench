@@ -45,6 +45,10 @@ def restriction_point_dim(bitness: int) -> int:
     return sample_point_dim(bitness - 1)
 
 
+def circuit_sample_point_dim(inputs: int, outputs: int) -> int:
+    return inputs + outputs * (inputs + 1)
+
+
 class Generator:
     def __init__(self, library_path: Path):
         self.library_path = str(library_path)
@@ -96,6 +100,25 @@ class Generator:
             ctypes.c_size_t,
         ]
         library.bb_parity_restrictions.restype = ctypes.c_char_p
+
+        library.bb_circuit_sets.argtypes = []
+        library.bb_circuit_sets.restype = ctypes.c_char_p
+
+        library.bb_circuit_cases.argtypes = [ctypes.c_char_p]
+        library.bb_circuit_cases.restype = ctypes.c_char_p
+
+        library.bb_circuit_inputs.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        library.bb_circuit_inputs.restype = ctypes.c_size_t
+
+        library.bb_circuit_outputs.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+        library.bb_circuit_outputs.restype = ctypes.c_size_t
+
+        library.bb_circuit_value.argtypes = [
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+        ]
+        library.bb_circuit_value.restype = ctypes.c_char_p
         return library
 
     def cases_number(self, bitness: int) -> int:
@@ -158,6 +181,38 @@ class Generator:
         signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
         return signed.reshape(bitness * 2, point_dim)
 
+    def circuit_sets(self) -> list[str]:
+        return _split_newlines(self.library.bb_circuit_sets())
+
+    def circuit_cases(self, set_name: str) -> list[str]:
+        return _split_newlines(
+            self.library.bb_circuit_cases(set_name.encode("ascii"))
+        )
+
+    def circuit_inputs(self, set_name: str, case_name: str) -> int:
+        return int(self.library.bb_circuit_inputs(
+            set_name.encode("ascii"),
+            case_name.encode("ascii"),
+        ))
+
+    def circuit_outputs(self, set_name: str, case_name: str) -> int:
+        return int(self.library.bb_circuit_outputs(
+            set_name.encode("ascii"),
+            case_name.encode("ascii"),
+        ))
+
+    def circuit_value(self, set_name: str, case_name: str, input_state: str) -> np.ndarray:
+        value = self.library.bb_circuit_value(
+            set_name.encode("ascii"),
+            case_name.encode("ascii"),
+            input_state.encode("ascii"),
+        )
+        point_dim = circuit_sample_point_dim(
+            self.circuit_inputs(set_name, case_name),
+            self.circuit_outputs(set_name, case_name),
+        )
+        return _ascii_bits_to_signed(value, point_dim)
+
 
 def load_generator() -> Generator:
     return Generator(LIBRARY)
@@ -167,6 +222,11 @@ def _ascii_bits_to_signed(value: bytes, expected_len: int) -> np.ndarray:
     assert len(value) == expected_len
     bits = np.frombuffer(value, dtype=np.uint8).astype(np.int8) - ord("0")
     return bits * 2 - 1
+
+
+def _split_newlines(value: bytes) -> list[str]:
+    text = value.decode("ascii")
+    return [] if not text else text.split("\n")
 
 
 def _init_worker(generator: Generator):

@@ -36,6 +36,21 @@ const char* bb_parity_value(uint16_t bitness, const char* input);
 // Same as bb_case_restrictions, but for parity function
 const char* bb_parity_restrictions(uint16_t bitness, size_t rep);
 
+// Returns sorted newline-separated circuit set names discovered in circuits/
+const char* bb_circuit_sets();
+
+// Returns sorted newline-separated circuit case names for a set
+const char* bb_circuit_cases(const char* set_name);
+
+size_t bb_circuit_inputs(const char* set_name, const char* case_name);
+size_t bb_circuit_outputs(const char* set_name, const char* case_name);
+
+// Computes value samples for an AIG circuit.
+// For sequential circuits, input_state contains primary inputs followed by latch state bits.
+// Return length is N + M * (N + 1), where N = inputs and M = outputs:
+// input_state + outputs(input_state) + outputs(input_state with flipped i-th bit).
+const char* bb_circuit_value(const char* set_name, const char* case_name, const char* input_state);
+
 #ifdef __cplusplus
 }
 #endif
