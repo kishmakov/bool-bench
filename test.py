@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 LIBRARY = Path(__file__).resolve().parent / "build" / "libgenerator.so"
+CIRCUITS = Path(__file__).resolve().parent / "circuits"
 
 GOLDEN_VALUES = {
     (2, 3, "01"): "01001",
@@ -78,6 +79,33 @@ def load_library():
 def split_list(value):
     text = value.decode("ascii")
     return [] if not text else text.split("\n")
+
+
+def expected_circuit_sets():
+    return sorted(
+        path.name
+        for path in CIRCUITS.iterdir()
+        if path.is_dir() and any(path.glob("*.aig"))
+    )
+
+
+def expected_circuit_cases(set_name):
+    return sorted(path.stem for path in (CIRCUITS / set_name).glob("*.aig"))
+
+
+def read_aig_metadata(set_name, case_name):
+    path = CIRCUITS / set_name / f"{case_name}.aig"
+    with path.open("rb") as file:
+        header = file.readline().decode("ascii").split()
+
+    assert header[0] == "aig"
+    assert len(header) >= 6
+
+    inputs = int(header[2])
+    latches = int(header[3])
+    outputs = int(header[4])
+    bads = int(header[6]) if len(header) > 6 else 0
+    return inputs + latches, outputs + bads
 
 
 def circuit_value(library, set_name, case_name, input_state):
@@ -217,15 +245,28 @@ def test_circuit_discovery(library):
     print(f"Check bb_circuit discovery ...")
 
     sets = split_list(library.bb_circuit_sets())
-    assert "iscas85" in sets
-    assert "iscas87" in sets
+    assert sets == expected_circuit_sets()
 
-    assert split_list(library.bb_circuit_cases(b"iscas85")) == ["c17"]
-    assert split_list(library.bb_circuit_cases(b"iscas87")) == ["s27"]
+    for set_name in sets:
+        assert split_list(library.bb_circuit_cases(set_name.encode("ascii"))) == (
+            expected_circuit_cases(set_name)
+        )
 
 
 def test_circuit_metadata(library):
     print(f"Check bb_circuit metadata ...")
+
+    for set_name in expected_circuit_sets():
+        for case_name in expected_circuit_cases(set_name):
+            expected_inputs, expected_outputs = read_aig_metadata(set_name, case_name)
+            assert library.bb_circuit_inputs(
+                set_name.encode("ascii"),
+                case_name.encode("ascii"),
+            ) == expected_inputs
+            assert library.bb_circuit_outputs(
+                set_name.encode("ascii"),
+                case_name.encode("ascii"),
+            ) == expected_outputs
 
     assert library.bb_circuit_inputs(b"iscas85", b"c17") == 5
     assert library.bb_circuit_outputs(b"iscas85", b"c17") == 2

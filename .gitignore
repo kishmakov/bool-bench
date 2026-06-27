@@ -4,6 +4,7 @@ cmake-build-*/
 
 # Execution artifacts
 tmp
+abc.history
 
 # Python
 __pycache__/
