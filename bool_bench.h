@@ -18,9 +18,6 @@ size_t bb_case_nodes(uint16_t bitness, size_t case_id);
 // Computes depth of the tree for given case
 size_t bb_case_depth(uint16_t bitness, size_t case_id);
 
-// Returns 0/1 masked representation of active bits
-const char* bb_case_active_bits(uint16_t bitness, size_t case_id);
-
 // Computes value of the function at input and all variations of input with one
 // bit flipped.
 // Return 0/1 string of length 2 * bitness + 1: input [bitness bits] +
@@ -29,12 +26,6 @@ const char* bb_case_value(uint16_t bitness, size_t case_id, const char* input);
 
 // Computes all restriction sample points for one rep as ASCII 0/1 bytes
 const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep);
-
-// Same as bb_case_value, but for parity function
-const char* bb_parity_value(uint16_t bitness, const char* input);
-
-// Same as bb_case_restrictions, but for parity function
-const char* bb_parity_restrictions(uint16_t bitness, size_t rep);
 
 // Returns sorted newline-separated circuit set names discovered in circuits/
 const char* bb_circuit_sets();

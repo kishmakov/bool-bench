@@ -93,35 +93,6 @@ void WriteCompactFlipSample(
     }
 }
 
-bool Parity(std::string_view input) {
-    bool result = false;
-    for (char bit : input) {
-        result ^= bit == '1';
-    }
-    return result;
-}
-
-void WriteCompactParityFlipSample(
-    std::string& value,
-    size_t sample_offset,
-    std::string& input,
-    size_t fixed_bit_id)
-{
-    const size_t bitness = input.size();
-    const size_t free_bits = fixed_bit_id < bitness ? bitness - 1 : bitness;
-
-    for (size_t coord = 0; coord < free_bits; ++coord) {
-        value[sample_offset + coord] = input[FullBitId(coord, fixed_bit_id)];
-    }
-    value[sample_offset + free_bits] = Parity(input) ? '1' : '0';
-    for (size_t coord = 0; coord < free_bits; ++coord) {
-        char& bit = input[FullBitId(coord, fixed_bit_id)];
-        bit = bit == '1' ? '0' : '1';
-        value[sample_offset + free_bits + 1 + coord] = Parity(input) ? '1' : '0';
-        bit = bit == '1' ? '0' : '1';
-    }
-}
-
 struct AigHeader {
     uint32_t max_var = 0;
     uint32_t inputs = 0;
@@ -468,21 +439,6 @@ size_t bb_case_depth(uint16_t bitness, size_t case_id) {
     return tree.depth;
 }
 
-const char* bb_case_active_bits(uint16_t bitness, size_t case_id) {
-    assert(case_id < bb_get_cases_number(bitness));
-
-    thread_local std::string active_bits;
-    const DecisionTree& tree = GetRandomTree(bitness, case_id);
-    active_bits.assign(tree.used_bits.size(), '0');
-    for (size_t bit_id = 0; bit_id < tree.used_bits.size(); ++bit_id) {
-        if (tree.used_bits[bit_id]) {
-            active_bits[bit_id] = '1';
-        }
-    }
-
-    return active_bits.c_str();
-}
-
 const char* bb_case_value(uint16_t bitness, size_t case_id, const char* input) {
     assert(case_id < bb_get_cases_number(bitness));
     assert(input != nullptr);
@@ -528,55 +484,6 @@ const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
             }
 
             WriteCompactFlipSample(value, offset, input, tree, fixed_bit_id);
-            offset += sample_size;
-        }
-    }
-
-    return value.c_str();
-}
-
-const char* bb_parity_value(uint16_t bitness, const char* input) {
-    assert(input != nullptr);
-    assert(std::strlen(input) == bitness);
-
-    thread_local std::string value;
-    thread_local std::string point_input;
-
-    value.assign(2 * bitness + 1, '0');
-    point_input.assign(input, bitness);
-
-    WriteCompactParityFlipSample(value, /*sample_offset=*/0, point_input, bitness);
-
-    return value.c_str();
-}
-
-const char* bb_parity_restrictions(uint16_t bitness, size_t rep) {
-    assert(bitness > 0);
-
-    thread_local std::string value;
-    thread_local std::string input;
-
-    std::seed_seq seed{
-        static_cast<uint32_t>(bitness),
-        static_cast<uint32_t>(rep),
-    };
-    std::mt19937 rng(seed);
-
-    const size_t free_bits = bitness - 1;
-    const size_t sample_size = 2 * free_bits + 1;
-    value.assign(bitness * 2 * sample_size, '0');
-    input.assign(bitness, '0');
-
-    size_t offset = 0;
-    for (size_t fixed_bit_id = 0; fixed_bit_id < bitness; ++fixed_bit_id) {
-        for (size_t fixed_bit_value = 0; fixed_bit_value <= 1; ++fixed_bit_value) {
-            input[fixed_bit_id] = static_cast<char>('0' + fixed_bit_value);
-
-            for (size_t coord = 0; coord < free_bits; ++coord) {
-                input[FullBitId(coord, fixed_bit_id)] = RandomBool(rng) ? '1' : '0';
-            }
-
-            WriteCompactParityFlipSample(value, offset, input, fixed_bit_id);
             offset += sample_size;
         }
     }

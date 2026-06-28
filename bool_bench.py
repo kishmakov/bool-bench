@@ -72,9 +72,6 @@ class Generator:
         library.bb_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
         library.bb_case_depth.restype = ctypes.c_size_t
 
-        library.bb_case_active_bits.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_case_active_bits.restype = ctypes.c_char_p
-
         library.bb_case_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
@@ -88,18 +85,6 @@ class Generator:
             ctypes.c_size_t,
         ]
         library.bb_case_restrictions.restype = ctypes.c_char_p
-
-        library.bb_parity_value.argtypes = [
-            ctypes.c_uint16,
-            ctypes.c_char_p,
-        ]
-        library.bb_parity_value.restype = ctypes.c_char_p
-
-        library.bb_parity_restrictions.argtypes = [
-            ctypes.c_uint16,
-            ctypes.c_size_t,
-        ]
-        library.bb_parity_restrictions.restype = ctypes.c_char_p
 
         library.bb_circuit_sets.argtypes = []
         library.bb_circuit_sets.restype = ctypes.c_char_p
@@ -130,9 +115,6 @@ class Generator:
     def case_depth(self, bitness: int, case_id: int) -> int:
         return int(self.library.bb_case_depth(bitness, case_id))
 
-    def case_active_bits(self, bitness: int, case_id: int) -> str:
-        return self.library.bb_case_active_bits(bitness, case_id).decode("ascii")
-
     def case_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
         value = self.library.bb_case_value(
             bitness,
@@ -159,22 +141,6 @@ class Generator:
         value = self.library.bb_case_restrictions(
             bitness,
             case_id,
-            rep,
-        )
-        point_dim = restriction_point_dim(bitness)
-        signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
-        return signed.reshape(bitness * 2, point_dim)
-
-    def parity_value(self, bitness: int, input_bits: str) -> np.ndarray:
-        value = self.library.bb_parity_value(
-            bitness,
-            input_bits.encode("ascii"),
-        )
-        return _ascii_bits_to_signed(value, sample_point_dim(bitness))
-
-    def parity_restrictions(self, bitness: int, rep: int) -> np.ndarray:
-        value = self.library.bb_parity_restrictions(
-            bitness,
             rep,
         )
         point_dim = restriction_point_dim(bitness)
