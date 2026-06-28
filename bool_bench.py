@@ -10,11 +10,11 @@ from pathlib import Path
 from tqdm import tqdm
 
 
-_LIBRARY_NAME = "libgenerator.so"
+_LIBRARY_NAME = "libbb.so"
 
 
 def _find_library() -> Path:
-    # Locate libgenerator.so relative to this module, so the same file works
+    # Locate libbb.so relative to this module, so the same file works
     # whether bool-bench is checked out standalone (built into ./build) or used
     # as a submodule whose .so is built into the superproject's build dir.
     # BOOL_BENCH_LIBRARY overrides discovery with an explicit path.
@@ -277,7 +277,7 @@ def _worker(task):
 
 def _get_fleet(generator: Generator, processes: int) -> list:
     # A persistent fleet of single-worker pools, one per residue class. Residue r
-    # always runs on fleet[r], so each worker process loads libgenerator.so once
+    # always runs on fleet[r], so each worker process loads libbb.so once
     # and the C++ tree caches it builds for its case_ids keep growing and stay
     # reused for the whole lifetime of the run, not just a single call.
     global _FLEET, _FLEET_KEY

@@ -2,7 +2,7 @@ import ctypes
 from pathlib import Path
 
 
-LIBRARY = Path(__file__).resolve().parent / "build" / "libgenerator.so"
+LIBRARY = Path(__file__).resolve().parent / "build" / "libbb.so"
 CIRCUITS = Path(__file__).resolve().parent / "circuits"
 
 GOLDEN_VALUES = {

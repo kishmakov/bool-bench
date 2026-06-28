@@ -20,7 +20,7 @@ if(NOT aiger_POPULATED)
     target_include_directories(aiger PUBLIC "${aiger_SOURCE_DIR}")
 endif()
 
-add_library(generator
+add_library(bb
     decision_tree.cpp
     decision_tree.h
     bool_bench.cpp
@@ -29,5 +29,5 @@ add_library(generator
     small_bitness.h
 )
 
-target_include_directories(generator PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(generator PRIVATE aiger)
+target_include_directories(bb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(bb PRIVATE aiger)
