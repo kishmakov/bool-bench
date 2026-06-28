@@ -406,8 +406,12 @@ const DecisionTree& GetRandomTree(uint16_t bitness, size_t case_id) {
     const CaseKey key{bitness, case_id};
     auto it = generated_trees.find(key);
     if (it == generated_trees.end()) {
-        if (bitness <= kExactTableBitness) {
-            it = generated_trees.emplace(key, SmallBitnessTree(bitness, case_id)).first;
+        if (IsSmallBitness(bitness)) {
+            it = generated_trees.emplace(
+                key,
+                BuildSizeOptimalDecisionTree(
+                    bitness,
+                    SmallBitnessTruthTable(bitness, case_id))).first;
         } else {
             std::mt19937 rng = PrepRNG(bitness, case_id);
             const size_t size = PrepSize(bitness, rng);
@@ -428,12 +432,20 @@ size_t bb_get_cases_number(uint16_t bitness) {
 size_t bb_case_nodes(uint16_t bitness, size_t case_id) {
     assert(case_id < bb_get_cases_number(bitness));
 
+    if (IsSmallBitness(bitness)) {
+        return SmallBitnessCaseNodes(bitness, case_id);
+    }
+
     const DecisionTree& tree = GetRandomTree(bitness, case_id);
     return tree.nodes.size() - tree.num_leafs;
 }
 
 size_t bb_case_depth(uint16_t bitness, size_t case_id) {
     assert(case_id < bb_get_cases_number(bitness));
+
+    if (IsSmallBitness(bitness)) {
+        return SmallBitnessCaseDepth(bitness, case_id);
+    }
 
     const DecisionTree& tree = GetRandomTree(bitness, case_id);
     return tree.depth;

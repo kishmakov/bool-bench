@@ -42,3 +42,7 @@ struct DecisionTree {
 private:
     uint16_t bitness_;
 };
+
+// Truth table bits are indexed by input value. Supports bitness up to 6.
+DecisionTree BuildDepthOptimalDecisionTree(uint16_t bitness, uint64_t truth_table);
+DecisionTree BuildSizeOptimalDecisionTree(uint16_t bitness, uint64_t truth_table);
