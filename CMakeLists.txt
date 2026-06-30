@@ -25,6 +25,8 @@ add_library(bb
     decision_tree.h
     bool_bench.cpp
     bool_bench.h
+    medium_bitness.cpp
+    medium_bitness.h
     small_bitness.cpp
     small_bitness.h
 )

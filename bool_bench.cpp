@@ -1,5 +1,6 @@
 #include "bool_bench.h"
 #include "decision_tree.h"
+#include "medium_bitness.h"
 #include "small_bitness.h"
 
 extern "C" {
@@ -412,6 +413,10 @@ const DecisionTree& GetRandomTree(uint16_t bitness, size_t case_id) {
                 BuildSizeOptimalDecisionTree(
                     bitness,
                     SmallBitnessTruthTable(bitness, case_id))).first;
+        } else if (IsMediumBitness(bitness)) {
+            it = generated_trees.emplace(
+                key,
+                MediumBitnessDecisionTree(bitness, case_id)).first;
         } else {
             std::mt19937 rng = PrepRNG(bitness, case_id);
             const size_t size = PrepSize(bitness, rng);
@@ -424,9 +429,13 @@ const DecisionTree& GetRandomTree(uint16_t bitness, size_t case_id) {
 // API
 
 size_t bb_get_cases_number(uint16_t bitness) {
-    return IsSmallBitness(bitness)
-        ? SmallBitnessCasesNumber(bitness)
-        : kCasesNumber;
+    if (IsSmallBitness(bitness)) {
+        return SmallBitnessCasesNumber(bitness);
+    }
+    if (IsMediumBitness(bitness)) {
+        return MediumBitnessCasesNumber(bitness);
+    }
+    return kCasesNumber;
 }
 
 size_t bb_case_nodes(uint16_t bitness, size_t case_id) {

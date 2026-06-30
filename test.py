@@ -5,19 +5,20 @@ from pathlib import Path
 LIBRARY = Path(__file__).resolve().parent / "build" / "libbb.so"
 CIRCUITS = Path(__file__).resolve().parent / "circuits"
 
-GOLDEN_VALUES = {
-    (2, 3, "01"): "01111",
-    (2, 15, "01"): "01001",
-    (3, 31, "101"): "1011101",
-    (3, 188, "110"): "1101100",
-    (4, 3190, "0001"): "000111101",
-    (4, 11304, "1101"): "110111110",
-    (5, 3261348405, "11000"): "11000101010",
-    (5, 390455940, "01001"): "01001011101",
-    (6, 2547012052, "110111"): "1101110111101",
-    (6, 883941716, "011111"): "0111111011011",
-}
-
+REFERENCE_CASES = [
+    (2, 3, "01", "01111"),
+    (2, 15, "01", "01001"),
+    (3, 31, "101", "1011101"),
+    (3, 188, "110", "1101100"),
+    (4, 3190, "0001", "000111101"),
+    (4, 11304, "1101", "110111110"),
+    (5, 3261348405, "11000", "11000101010"),
+    (5, 390455940, "01001", "01001011101"),
+    (6, 2547012052, "110111", "1101110111101"),
+    (6, 883941716, "011111", "0111111011011"),
+    (7, 42, "0101010", "010101000010010"),
+    (16, 42, "0101010101010101", "010101010101010100111110101000000"),
+]
 
 def load_library():
     library = ctypes.CDLL(str(LIBRARY))
@@ -115,7 +116,7 @@ def case_value(library, bitness, case_id, input_bits):
 def test_case_value(library):
     print(f"Check bb_case_value ...")
 
-    for (bitness, case_id, input_bits), expected in GOLDEN_VALUES.items():
+    for bitness, case_id, input_bits, expected in REFERENCE_CASES:
         assert case_id < library.bb_get_cases_number(bitness)
         assert case_value(library, bitness, case_id, input_bits) == expected
 
@@ -123,7 +124,7 @@ def test_case_value(library):
 def test_case_restrictions(library):
     print(f"Check bb_case_restrictions ...")
 
-    for bitness, case_id, _ in GOLDEN_VALUES:
+    for bitness, case_id, _, _ in REFERENCE_CASES:
         free_bits = bitness - 1
         sample_size = 2 * free_bits + 1
 
@@ -164,9 +165,30 @@ def test_case_restrictions(library):
 def test_case_depth(library):
     print(f"Check bb_case_depth ...")
 
-    for bitness, case_id, _ in GOLDEN_VALUES:
+    for bitness, case_id, _, _ in REFERENCE_CASES:
         depth = library.bb_case_depth(bitness, case_id)
         assert 0 <= depth <= bitness
+
+
+def assert_case_consistent(library, bitness, case_id, input_bits):
+    value = case_value(library, bitness, case_id, input_bits)
+    assert len(value) == 2 * bitness + 1
+    assert value[:bitness] == input_bits
+    assert value == case_value(library, bitness, case_id, input_bits)
+    assert 0 <= library.bb_case_depth(bitness, case_id) <= bitness
+
+    for bit_id in range(bitness):
+        flipped = list(input_bits)
+        flipped[bit_id] = "1" if flipped[bit_id] == "0" else "0"
+        flipped_value = case_value(library, bitness, case_id, "".join(flipped))
+        assert value[bitness + 1 + bit_id] == flipped_value[bitness]
+
+
+def test_reference_cases(library):
+    print(f"Check reference cases ...")
+
+    for bitness, case_id, input_bits, _ in REFERENCE_CASES:
+        assert_case_consistent(library, bitness, case_id, input_bits)
 
 
 def test_circuit_discovery(library):
@@ -220,6 +242,7 @@ if __name__ == "__main__":
     test_case_value(library)
     test_case_restrictions(library)
     test_case_depth(library)
+    test_reference_cases(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)
