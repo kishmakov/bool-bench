@@ -4,8 +4,6 @@
 
 #include <cassert>
 #include <cstdint>
-#include <limits>
-#include <random>
 
 namespace {
 
@@ -38,13 +36,7 @@ size_t SmallBitnessCasesNumber(uint16_t bitness) {
 uint64_t SmallBitnessTruthTable(uint16_t bitness, size_t case_id) {
     assert(IsSmallBitness(bitness));
     assert(case_id < SmallBitnessCasesNumber(bitness));
-
-    std::seed_seq seed{
-        static_cast<uint32_t>(bitness),
-        static_cast<uint32_t>(case_id),
-    };
-    std::mt19937_64 rng(seed);
-    return rng() & TruthTableMask(bitness);
+    return static_cast<uint64_t>(case_id) & TruthTableMask(bitness);
 }
 
 size_t SmallBitnessCaseNodes(uint16_t bitness, size_t case_id) {

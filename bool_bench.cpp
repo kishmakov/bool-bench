@@ -12,37 +12,28 @@
 #include <random>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 const size_t kCasesNumber = 1ull << 32; // some technical limitation
 
-const size_t kMaxEffectiveSize = (1u << 16); // exclusive upper bound
-
 namespace {
+
+using CaseKey = std::pair<uint16_t, size_t>;
+using ValueKey = std::tuple<uint16_t, size_t, std::vector<bool>>;
+
+std::map<CaseKey, std::vector<bool>> g_medium_truth_tables;
+std::mutex g_medium_truth_tables_mutex;
+
+std::map<CaseKey, DecisionTree> g_decision_trees;
+std::mutex g_decision_trees_mutex;
+
+std::map<ValueKey, bool> g_sparse_values;
+std::mutex g_sparse_values_mutex;
 
 bool RandomBool(std::mt19937& rng) {
     return std::uniform_int_distribution<int>(0, 1)(rng) != 0;
-}
-
-DecisionTree RandomTree(uint16_t bitness, std::mt19937& rng, size_t target_size) {
-    DecisionTree tree(bitness);
-
-    if (target_size == 0) { // Pure leaf tree
-        tree.AddLeaf(RandomBool(rng));
-        tree.Finalize();
-        return tree;
-    }
-
-    std::vector<bool> path_used_bits(bitness, false);
-    tree.BuildSubtree(
-        target_size,
-        path_used_bits,
-        /*path_used_count=*/0,
-        RandomBool(rng),
-        rng);
-    tree.Finalize();
-    return tree;
 }
 
 inline std::mt19937 PrepRNG(uint16_t bitness, size_t case_id) {
@@ -53,71 +44,164 @@ inline std::mt19937 PrepRNG(uint16_t bitness, size_t case_id) {
     return std::mt19937(seed);
 }
 
-inline size_t PrepSize(uint16_t bitness, std::mt19937& rng) {
-    const size_t max_size = bitness >= 16
-        ? kMaxEffectiveSize - 1
-        : (1ull << bitness) - 1;
-    return std::uniform_int_distribution<size_t>(0, max_size)(rng);
-}
-
 // Computes position of bit in masked sequence
 inline size_t FullBitId(size_t bit_id, size_t fixed_id) {
     return bit_id < fixed_id ? bit_id : bit_id + 1;
+}
+
+std::vector<bool> InputBits(std::string_view input) {
+    std::vector<bool> bits;
+    bits.reserve(input.size());
+    for (char bit : input) {
+        assert(bit == '0' || bit == '1');
+        bits.push_back(bit == '1');
+    }
+    return bits;
+}
+
+const std::vector<bool>& GetMediumTruthTable(uint16_t bitness, size_t case_id) {
+    assert(IsMediumBitness(bitness));
+    assert(case_id < MediumBitnessCasesNumber(bitness));
+
+    std::lock_guard<std::mutex> lock(g_medium_truth_tables_mutex);
+
+    const CaseKey key{bitness, case_id};
+    auto it = g_medium_truth_tables.find(key);
+    if (it == g_medium_truth_tables.end()) {
+        it = g_medium_truth_tables.emplace(
+            key,
+            MediumBitnessTruthTable(bitness, case_id)).first;
+    }
+    return it->second;
+}
+
+DecisionTree BuildDecisionTree(uint16_t bitness, size_t case_id) {
+    if (IsSmallBitness(bitness)) {
+        return BuildSizeOptimalDecisionTree(
+            bitness,
+            SmallBitnessTruthTable(bitness, case_id));
+    }
+    assert(IsMediumBitness(bitness));
+    return BuildSizeOptimalDecisionTree(
+        bitness,
+        GetMediumTruthTable(bitness, case_id));
+}
+
+const DecisionTree& GetDecisionTree(uint16_t bitness, size_t case_id) {
+    assert(IsSmallBitness(bitness) || IsMediumBitness(bitness));
+    assert(case_id < bb_gen_cases_number(bitness));
+
+    const CaseKey key{bitness, case_id};
+    {
+        std::lock_guard<std::mutex> lock(g_decision_trees_mutex);
+        auto it = g_decision_trees.find(key);
+        if (it != g_decision_trees.end()) {
+            return it->second;
+        }
+    }
+
+    DecisionTree tree = BuildDecisionTree(bitness, case_id);
+
+    std::lock_guard<std::mutex> lock(g_decision_trees_mutex);
+    auto it = g_decision_trees.find(key);
+    if (it == g_decision_trees.end()) {
+        it = g_decision_trees.emplace(key, std::move(tree)).first;
+    }
+    return it->second;
+}
+
+bool DeterministicSparseValue(
+    uint16_t bitness,
+    size_t case_id,
+    const std::vector<bool>& input)
+{
+    assert(input.size() == bitness);
+
+    const uint64_t case_seed = static_cast<uint64_t>(case_id);
+    std::vector<uint32_t> seed{
+        static_cast<uint32_t>(bitness),
+        static_cast<uint32_t>(case_seed),
+        static_cast<uint32_t>(case_seed >> 32),
+    };
+
+    uint32_t chunk = 0;
+    uint32_t chunk_bits = 0;
+    for (bool bit : input) {
+        if (bit) {
+            chunk |= uint32_t{1} << chunk_bits;
+        }
+        ++chunk_bits;
+        if (chunk_bits == 32) {
+            seed.push_back(chunk);
+            chunk = 0;
+            chunk_bits = 0;
+        }
+    }
+    if (chunk_bits > 0) {
+        seed.push_back(chunk);
+    }
+
+    std::seed_seq seed_seq(seed.begin(), seed.end());
+    std::mt19937 rng(seed_seq);
+    return RandomBool(rng);
+}
+
+bool GetSparseValue(uint16_t bitness, size_t case_id, std::string_view input) {
+    assert(!IsSmallBitness(bitness));
+    assert(!IsMediumBitness(bitness));
+    assert(case_id < bb_gen_cases_number(bitness));
+    assert(input.size() == bitness);
+
+    const std::vector<bool> input_bits = InputBits(input);
+    const ValueKey key{bitness, case_id, input_bits};
+    std::lock_guard<std::mutex> lock(g_sparse_values_mutex);
+
+    auto it = g_sparse_values.find(key);
+    if (it == g_sparse_values.end()) {
+        it = g_sparse_values.emplace(
+            key,
+            DeterministicSparseValue(bitness, case_id, input_bits)).first;
+    }
+    return it->second;
+}
+
+bool EvaluateGeneratedCase(
+    uint16_t bitness,
+    size_t case_id,
+    std::string_view input)
+{
+    assert(input.size() == bitness);
+    if (IsSmallBitness(bitness) || IsMediumBitness(bitness)) {
+        return GetDecisionTree(bitness, case_id).Evaluate(input);
+    }
+    return GetSparseValue(bitness, case_id, input);
 }
 
 void WriteCompactFlipSample(
     std::string& value,
     size_t sample_offset,
     std::string& input,
-    const DecisionTree& tree,
+    uint16_t bitness,
+    size_t case_id,
     size_t fixed_bit_id)
 {
-    const size_t bitness = input.size();
     const size_t free_bits = fixed_bit_id < bitness ? bitness - 1 : bitness;
 
     for (size_t coord = 0; coord < free_bits; ++coord) {
         value[sample_offset + coord] = input[FullBitId(coord, fixed_bit_id)];
     }
-    value[sample_offset + free_bits] = tree.Evaluate({input.data(), bitness}) ? '1' : '0';
+    value[sample_offset + free_bits] =
+        EvaluateGeneratedCase(bitness, case_id, {input.data(), bitness}) ? '1' : '0';
     for (size_t coord = 0; coord < free_bits; ++coord) {
         char& bit = input[FullBitId(coord, fixed_bit_id)];
         bit = bit == '1' ? '0' : '1';
-        value[sample_offset + free_bits + 1 + coord] = tree.Evaluate({input.data(), bitness}) ? '1' : '0';
+        value[sample_offset + free_bits + 1 + coord] =
+            EvaluateGeneratedCase(bitness, case_id, {input.data(), bitness}) ? '1' : '0';
         bit = bit == '1' ? '0' : '1';
     }
 }
 
 }  // namespace
-
-const DecisionTree& GetRandomTree(uint16_t bitness, size_t case_id) {
-    using CaseKey = std::pair<uint16_t, size_t>;
-
-    static std::map<CaseKey, DecisionTree> generated_trees;
-    static std::mutex generated_trees_mutex;
-
-    std::lock_guard<std::mutex> lock(generated_trees_mutex);
-
-    const CaseKey key{bitness, case_id};
-    auto it = generated_trees.find(key);
-    if (it == generated_trees.end()) {
-        if (IsSmallBitness(bitness)) {
-            it = generated_trees.emplace(
-                key,
-                BuildSizeOptimalDecisionTree(
-                    bitness,
-                    SmallBitnessTruthTable(bitness, case_id))).first;
-        } else if (IsMediumBitness(bitness)) {
-            it = generated_trees.emplace(
-                key,
-                MediumBitnessDecisionTree(bitness, case_id)).first;
-        } else {
-            std::mt19937 rng = PrepRNG(bitness, case_id);
-            const size_t size = PrepSize(bitness, rng);
-            it = generated_trees.emplace(key, RandomTree(bitness, rng, size)).first;
-        }
-    }
-    return it->second;
-}
 
 // API
 
@@ -132,24 +216,18 @@ size_t bb_gen_cases_number(uint16_t bitness) {
 }
 
 size_t bb_gen_nodes(uint16_t bitness, size_t case_id) {
+    assert(IsSmallBitness(bitness) || IsMediumBitness(bitness));
     assert(case_id < bb_gen_cases_number(bitness));
 
-    if (IsSmallBitness(bitness)) {
-        return SmallBitnessCaseNodes(bitness, case_id);
-    }
-
-    const DecisionTree& tree = GetRandomTree(bitness, case_id);
+    const DecisionTree& tree = GetDecisionTree(bitness, case_id);
     return tree.nodes.size() - tree.num_leafs;
 }
 
 size_t bb_gen_depth(uint16_t bitness, size_t case_id) {
+    assert(IsSmallBitness(bitness) || IsMediumBitness(bitness));
     assert(case_id < bb_gen_cases_number(bitness));
 
-    if (IsSmallBitness(bitness)) {
-        return SmallBitnessCaseDepth(bitness, case_id);
-    }
-
-    const DecisionTree& tree = GetRandomTree(bitness, case_id);
+    const DecisionTree& tree = GetDecisionTree(bitness, case_id);
     return tree.depth;
 }
 
@@ -164,8 +242,13 @@ const char* bb_gen_value(uint16_t bitness, size_t case_id, const char* input) {
     value.assign(2 * bitness + 1, '0');
     point_input.assign(input, bitness);
 
-    const DecisionTree& tree = GetRandomTree(bitness, case_id);
-    WriteCompactFlipSample(value, /*sample_offset=*/0, point_input, tree, bitness);
+    WriteCompactFlipSample(
+        value,
+        /*sample_offset=*/0,
+        point_input,
+        bitness,
+        case_id,
+        bitness);
 
     return value.c_str();
 }
@@ -184,8 +267,6 @@ const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
     value.assign(bitness * 2 * sample_size, '0');
     input.assign(bitness, '0');
 
-    const DecisionTree& tree = GetRandomTree(bitness, case_id);
-
     size_t offset = 0;
     for (size_t fixed_bit_id = 0; fixed_bit_id < bitness; ++fixed_bit_id) {
         for (size_t fixed_bit_value = 0; fixed_bit_value <= 1; ++fixed_bit_value) {
@@ -197,7 +278,13 @@ const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
                 input[FullBitId(coord, fixed_bit_id)] = RandomBool(rng) ? '1' : '0';
             }
 
-            WriteCompactFlipSample(value, offset, input, tree, fixed_bit_id);
+            WriteCompactFlipSample(
+                value,
+                offset,
+                input,
+                bitness,
+                case_id,
+                fixed_bit_id);
             offset += sample_size;
         }
     }

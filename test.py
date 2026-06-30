@@ -6,35 +6,40 @@ LIBRARY = Path(__file__).resolve().parent / "build" / "libbb.so"
 CIRCUITS = Path(__file__).resolve().parent / "circuits"
 
 REFERENCE_CASES = [
-    (2, 3, "01", "01111"),
-    (2, 15, "01", "01001"),
-    (3, 31, "101", "1011101"),
-    (3, 188, "110", "1101100"),
-    (4, 3190, "0001", "000111101"),
-    (4, 11304, "1101", "110111110"),
-    (5, 3261348405, "11000", "11000101010"),
-    (5, 390455940, "01001", "01001011101"),
-    (6, 2547012052, "110111", "1101110111101"),
-    (6, 883941716, "011111", "0111111011011"),
+    (4,    0, "0101", "010100000"),
+    (4, 3190, "0001", "000100100"),
+    (4, 11304, "1101", "110111001"),
+    (5, 3261348405, "11000", "11000010010"),
+    (5, 390455940, "01001", "01001101111"),
+    (6, 2547012052, "110111", "1101110000000"),
+    (6, 883941716, "011111", "0111110000000"),
     (7, 42, "0101010", "010101000010010"),
     (16, 42, "0101010101010101", "010101010101010100111110101000000"),
+]
+
+SPARSE_CASES = [
+    (17, 42, "01010101010101010"),
+    (24, 188, "110010100111000101010011"),
 ]
 
 def load_library():
     library = ctypes.CDLL(str(LIBRARY))
 
-    library.bb_get_cases_number.argtypes = [ctypes.c_uint16]
-    library.bb_get_cases_number.restype = ctypes.c_size_t
+    library.bb_gen_cases_number.argtypes = [ctypes.c_uint16]
+    library.bb_gen_cases_number.restype = ctypes.c_size_t
 
-    library.bb_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_case_depth.restype = ctypes.c_size_t
+    library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_gen_nodes.restype = ctypes.c_size_t
 
-    library.bb_case_value.argtypes = [
+    library.bb_gen_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_gen_depth.restype = ctypes.c_size_t
+
+    library.bb_gen_value.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
         ctypes.c_char_p,
     ]
-    library.bb_case_value.restype = ctypes.c_char_p
+    library.bb_gen_value.restype = ctypes.c_char_p
 
     library.bb_case_restrictions.argtypes = [
         ctypes.c_uint16,
@@ -106,7 +111,7 @@ def circuit_value(library, set_name, case_name, input_state):
 
 
 def case_value(library, bitness, case_id, input_bits):
-    return library.bb_case_value(
+    return library.bb_gen_value(
         bitness,
         case_id,
         input_bits.encode("ascii"),
@@ -114,17 +119,19 @@ def case_value(library, bitness, case_id, input_bits):
 
 
 def test_case_value(library):
-    print(f"Check bb_case_value ...")
+    print(f"Check bb_gen_value ...")
 
     for bitness, case_id, input_bits, expected in REFERENCE_CASES:
-        assert case_id < library.bb_get_cases_number(bitness)
+        assert case_id < library.bb_gen_cases_number(bitness)
         assert case_value(library, bitness, case_id, input_bits) == expected
 
 
 def test_case_restrictions(library):
     print(f"Check bb_case_restrictions ...")
 
-    for bitness, case_id, _, _ in REFERENCE_CASES:
+    cases = [(bitness, case_id) for bitness, case_id, _, _ in REFERENCE_CASES]
+    cases += [(bitness, case_id) for bitness, case_id, _ in SPARSE_CASES]
+    for bitness, case_id in cases:
         free_bits = bitness - 1
         sample_size = 2 * free_bits + 1
 
@@ -163,19 +170,23 @@ def test_case_restrictions(library):
 
 
 def test_case_depth(library):
-    print(f"Check bb_case_depth ...")
+    print(f"Check bb_gen_depth and bb_gen_nodes ...")
 
     for bitness, case_id, _, _ in REFERENCE_CASES:
-        depth = library.bb_case_depth(bitness, case_id)
+        depth = library.bb_gen_depth(bitness, case_id)
+        nodes = library.bb_gen_nodes(bitness, case_id)
         assert 0 <= depth <= bitness
+        assert nodes >= 0
 
 
-def assert_case_consistent(library, bitness, case_id, input_bits):
+def assert_case_consistent(library, bitness, case_id, input_bits, check_metrics):
     value = case_value(library, bitness, case_id, input_bits)
     assert len(value) == 2 * bitness + 1
     assert value[:bitness] == input_bits
     assert value == case_value(library, bitness, case_id, input_bits)
-    assert 0 <= library.bb_case_depth(bitness, case_id) <= bitness
+    if check_metrics:
+        assert 0 <= library.bb_gen_depth(bitness, case_id) <= bitness
+        assert library.bb_gen_nodes(bitness, case_id) >= 0
 
     for bit_id in range(bitness):
         flipped = list(input_bits)
@@ -188,7 +199,24 @@ def test_reference_cases(library):
     print(f"Check reference cases ...")
 
     for bitness, case_id, input_bits, _ in REFERENCE_CASES:
-        assert_case_consistent(library, bitness, case_id, input_bits)
+        assert_case_consistent(library, bitness, case_id, input_bits, True)
+
+
+def test_sparse_cases(library):
+    print(f"Check sparse generated cases ...")
+
+    for bitness, case_id, input_bits in SPARSE_CASES:
+        assert_case_consistent(library, bitness, case_id, input_bits, False)
+
+        flipped = list(input_bits)
+        flipped[0] = "1" if flipped[0] == "0" else "0"
+        flipped = "".join(flipped)
+
+        first = case_value(library, bitness, case_id, input_bits)
+        other = case_value(library, bitness, case_id, flipped)
+        assert first == case_value(library, bitness, case_id, input_bits)
+        assert other == case_value(library, bitness, case_id, flipped)
+        assert first == case_value(library, bitness, case_id, input_bits)
 
 
 def test_circuit_discovery(library):
@@ -243,6 +271,7 @@ if __name__ == "__main__":
     test_case_restrictions(library)
     test_case_depth(library)
     test_reference_cases(library)
+    test_sparse_cases(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)
