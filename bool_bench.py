@@ -63,21 +63,21 @@ class Generator:
     def _load_library(self) -> ctypes.CDLL:
         library = ctypes.CDLL(self.library_path)
 
-        library.bb_get_cases_number.argtypes = [ctypes.c_uint16]
-        library.bb_get_cases_number.restype = ctypes.c_size_t
+        library.bb_gen_cases_number.argtypes = [ctypes.c_uint16]
+        library.bb_gen_cases_number.restype = ctypes.c_size_t
 
-        library.bb_case_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_case_nodes.restype = ctypes.c_size_t
+        library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_gen_nodes.restype = ctypes.c_size_t
 
-        library.bb_case_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_case_depth.restype = ctypes.c_size_t
+        library.bb_gen_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_gen_depth.restype = ctypes.c_size_t
 
-        library.bb_case_value.argtypes = [
+        library.bb_gen_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_char_p,
         ]
-        library.bb_case_value.restype = ctypes.c_char_p
+        library.bb_gen_value.restype = ctypes.c_char_p
 
         library.bb_case_restrictions.argtypes = [
             ctypes.c_uint16,
@@ -107,16 +107,16 @@ class Generator:
         return library
 
     def cases_number(self, bitness: int) -> int:
-        return int(self.library.bb_get_cases_number(bitness))
+        return int(self.library.bb_gen_cases_number(bitness))
 
     def case_nodes(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_case_nodes(bitness, case_id))
+        return int(self.library.bb_gen_nodes(bitness, case_id))
 
     def case_depth(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_case_depth(bitness, case_id))
+        return int(self.library.bb_gen_depth(bitness, case_id))
 
     def case_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
-        value = self.library.bb_case_value(
+        value = self.library.bb_gen_value(
             bitness,
             case_id,
             input_bits.encode("ascii"),

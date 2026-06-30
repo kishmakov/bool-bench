@@ -21,6 +21,8 @@ if(NOT aiger_POPULATED)
 endif()
 
 add_library(bb
+    aig.cpp
+    aig.h
     decision_tree.cpp
     decision_tree.h
     bool_bench.cpp
