@@ -253,6 +253,10 @@ const char* bb_gen_value(uint16_t bitness, size_t case_id, const char* input) {
     return value.c_str();
 }
 
+uint16_t bb_gen_solvable_bitness() {
+    return kMaxMediumBitness;
+}
+
 const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
     assert(case_id < bb_gen_cases_number(bitness));
     assert(bitness > 0);

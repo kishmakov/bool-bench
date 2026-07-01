@@ -22,6 +22,8 @@ size_t bb_gen_depth(uint16_t bitness, size_t case_id);
 // f(input) [1 bit] + f(input with flipped i-th bit) [1 x bitness bits]
 const char* bb_gen_value(uint16_t bitness, size_t case_id, const char* input);
 
+uint16_t bb_gen_solvable_bitness();
+
 // Computes all restriction sample points for one rep as ASCII 0/1 bytes
 const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep);
 

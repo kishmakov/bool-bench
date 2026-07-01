@@ -66,6 +66,9 @@ class Generator:
         library.bb_gen_cases_number.argtypes = [ctypes.c_uint16]
         library.bb_gen_cases_number.restype = ctypes.c_size_t
 
+        library.bb_gen_solvable_bitness.argtypes = []
+        library.bb_gen_solvable_bitness.restype = ctypes.c_uint16
+
         library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
         library.bb_gen_nodes.restype = ctypes.c_size_t
 
@@ -108,6 +111,9 @@ class Generator:
 
     def cases_number(self, bitness: int) -> int:
         return int(self.library.bb_gen_cases_number(bitness))
+
+    def solvable_bitness(self) -> int:
+        return int(self.library.bb_gen_solvable_bitness())
 
     def case_nodes(self, bitness: int, case_id: int) -> int:
         return int(self.library.bb_gen_nodes(bitness, case_id))
