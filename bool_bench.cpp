@@ -324,9 +324,29 @@ uint16_t bb_gen_solvable_bitness() {
     return kMaxMediumBitness;
 }
 
+const char* bb_case_restrictions_impl(
+    uint16_t bitness,
+    size_t case_id,
+    size_t rep,
+    bool random_sparse);
+
 const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
+    return bb_case_restrictions_impl(bitness, case_id, rep, false);
+}
+
+const char* bb_case_restrictions_rnd(uint16_t bitness, size_t case_id, size_t rep) {
+    return bb_case_restrictions_impl(bitness, case_id, rep, true);
+}
+
+const char* bb_case_restrictions_impl(
+    uint16_t bitness,
+    size_t case_id,
+    size_t rep,
+    bool random_sparse)
+{
     assert(case_id < bb_gen_cases_number(bitness));
     assert(bitness > 0);
+    assert(!random_sparse || bitness > bb_gen_solvable_bitness());
 
     thread_local std::string value;
     thread_local std::string input;
@@ -356,7 +376,7 @@ const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
                 bitness,
                 case_id,
                 fixed_bit_id,
-                false);
+                random_sparse);
             offset += sample_size;
         }
     }

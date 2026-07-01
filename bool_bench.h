@@ -33,6 +33,7 @@ uint16_t bb_gen_solvable_bitness();
 
 // Computes all restriction sample points for one rep as ASCII 0/1 bytes
 const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep);
+const char* bb_case_restrictions_rnd(uint16_t bitness, size_t case_id, size_t rep);
 
 // Returns sorted newline-separated circuit set names discovered in circuits/
 const char* bb_circuit_sets();

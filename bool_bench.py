@@ -96,6 +96,13 @@ class Generator:
         ]
         library.bb_case_restrictions.restype = ctypes.c_char_p
 
+        library.bb_case_restrictions_rnd.argtypes = [
+            ctypes.c_uint16,
+            ctypes.c_size_t,
+            ctypes.c_size_t,
+        ]
+        library.bb_case_restrictions_rnd.restype = ctypes.c_char_p
+
         library.bb_circuit_sets.argtypes = []
         library.bb_circuit_sets.restype = ctypes.c_char_p
 
@@ -158,8 +165,37 @@ class Generator:
             samples[row_id] = self.case_value(bitness, case_id, bits)
         return samples
 
+    def case_values_rnd(
+        self,
+        bitness: int,
+        case_id: int,
+        input_bits: Sequence[str],
+    ) -> np.ndarray:
+        samples = np.empty(
+            (len(input_bits), sample_point_dim(bitness)),
+            dtype=np.float32,
+        )
+        for row_id, bits in enumerate(input_bits):
+            samples[row_id] = self.case_value_rnd(bitness, case_id, bits)
+        return samples
+
     def case_restrictions(self, bitness: int, case_id: int, rep: int) -> np.ndarray:
         value = self.library.bb_case_restrictions(
+            bitness,
+            case_id,
+            rep,
+        )
+        point_dim = restriction_point_dim(bitness)
+        signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
+        return signed.reshape(bitness * 2, point_dim)
+
+    def case_restrictions_rnd(
+        self,
+        bitness: int,
+        case_id: int,
+        rep: int,
+    ) -> np.ndarray:
+        value = self.library.bb_case_restrictions_rnd(
             bitness,
             case_id,
             rep,
