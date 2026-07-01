@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 size_t bb_gen_cases_number(uint16_t bitness);
+size_t bb_gen_rnd_cases_number(uint16_t bitness);
 
 // Number of nodes or depth for given case
 size_t bb_gen_nodes(uint16_t bitness, size_t case_id);
@@ -21,6 +22,12 @@ size_t bb_gen_depth(uint16_t bitness, size_t case_id);
 // Return 0/1 string of length 2 * bitness + 1: input [bitness bits] +
 // f(input) [1 bit] + f(input with flipped i-th bit) [1 x bitness bits]
 const char* bb_gen_value(uint16_t bitness, size_t case_id, const char* input);
+
+
+// Same output format as bb_gen_value, but only for bitness greater than
+// bb_gen_solvable_bitness(). Sparse truth-table values are assigned lazily at
+// random and cached for consistent subsequent queries.
+const char* bb_gen_value_rnd(uint16_t bitness, size_t case_id, const char* input);
 
 uint16_t bb_gen_solvable_bitness();
 

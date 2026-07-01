@@ -5,21 +5,124 @@ from pathlib import Path
 LIBRARY = Path(__file__).resolve().parent / "build" / "libbb.so"
 CIRCUITS = Path(__file__).resolve().parent / "circuits"
 
-REFERENCE_CASES = [
-    (4,    0, "0101", "010100000"),
-    (4, 3190, "0001", "000100100"),
-    (4, 11304, "1101", "110111001"),
-    (5, 3261348405, "11000", "11000010010"),
-    (5, 390455940, "01001", "01001101111"),
-    (6, 2547012052, "110111", "1101110000000"),
-    (6, 883941716, "011111", "0111110000000"),
-    (7, 42, "0101010", "010101000010010"),
-    (16, 42, "0101010101010101", "010101010101010100111110101000000"),
+SOLVABLE_CASES = [
+    (4, 0, "0101", "010100000", 0, 0),
+    (4, 3190, "0001", "000100100", 4, 7),
+    (4, 11304, "1101", "110111001", 4, 6),
+    (5, 3261348405, "11000", "11000010010", 5, 14),
+    (5, 390455940, "01001", "01001101111", 5, 16),
+    (6, 2547012052, "110111", "1101110000000", 6, 16),
+    (6, 883941716, "011111", "0111110000000", 6, 17),
+    (7, 42, "0101010", "010101000010010", 7, 77),
+    (
+        16,
+        42,
+        "0101010101010101",
+        "010101010101010100111110101000000",
+        16,
+        40170,
+    ),
+    (
+        17,
+        42,
+        "01010101010101010",
+        "01010101010101010000010000100001010",
+        10,
+        42,
+    ),
+    (
+        24,
+        188,
+        "110010100111000101010011",
+        "1100101001110001010100111110110110111111111101111",
+        19,
+        188,
+    ),
+    (
+        32,
+        320,
+        "01010101010101010101010101010101",
+        "01010101010101010101010101010101010000101000000000000100000001010",
+        16,
+        320,
+    ),
+    (
+        48,
+        480,
+        "110010101100101011001010110010101100101011001010",
+        "1100101011001010110010101100101011001010110010100000001001000000000000000000000001000000000000100",
+        23,
+        480,
+    ),
+    (
+        64,
+        640,
+        "0011010100110101001101010011010100110101001101010011010100110101",
+        "001101010011010100110101001101010011010100110101001101010011010111111111010111111111111111111111111111111101111111111111111111111",
+        22,
+        640,
+    ),
+    (
+        100,
+        1000,
+        "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
+        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001111111110111111111111111111111111110111111110111111111111111111111111111111111111111111111111111111111",
+        23,
+        1000,
+    ),
+    (
+        128,
+        1280,
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110111111111111111101111111111111111111011111111111111111111111111111111111111111111111111111111111111111111111110111111111111111111",
+        23,
+        1280,
+    ),
 ]
 
-SPARSE_CASES = [
-    (17, 42, "01010101010101010"),
-    (24, 188, "110010100111000101010011"),
+RANDOM_CASES = [
+    (
+        17,
+        42,
+        "01010101010101010",
+        "01010101010101010111000000111000110",
+    ),
+    (
+        24,
+        188,
+        "110010100111000101010011",
+        "1100101001110001010100111010111010101001011101101",
+    ),
+    (
+        32,
+        320,
+        "01010101010101010101010101010101",
+        "01010101010101010101010101010101011000000101101101000111000101001",
+    ),
+    (
+        48,
+        480,
+        "110010101100101011001010110010101100101011001010",
+        "1100101011001010110010101100101011001010110010100001011011000001001010110100000110011111101011011",
+    ),
+    (
+        64,
+        640,
+        "0011010100110101001101010011010100110101001101010011010100110101",
+        "001101010011010100110101001101010011010100110101001101010011010101110100101111001010111011010001111101000011000011001000011110110",
+    ),
+    (
+        100,
+        1000,
+        "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
+        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001101101100011010001101100111110110110000101011001010010010000100100011010100100110010101010011110011001",
+    ),
+    (
+        128,
+        1280,
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110001100110000111111001001101111110101010111011001001011111100100001011001001101001001011011011110111000110101111011101010101101100",
+    ),
 ]
 
 def load_library():
@@ -27,6 +130,9 @@ def load_library():
 
     library.bb_gen_cases_number.argtypes = [ctypes.c_uint16]
     library.bb_gen_cases_number.restype = ctypes.c_size_t
+
+    library.bb_gen_solvable_bitness.argtypes = []
+    library.bb_gen_solvable_bitness.restype = ctypes.c_uint16
 
     library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
     library.bb_gen_nodes.restype = ctypes.c_size_t
@@ -40,6 +146,13 @@ def load_library():
         ctypes.c_char_p,
     ]
     library.bb_gen_value.restype = ctypes.c_char_p
+
+    library.bb_gen_value_rnd.argtypes = [
+        ctypes.c_uint16,
+        ctypes.c_size_t,
+        ctypes.c_char_p,
+    ]
+    library.bb_gen_value_rnd.restype = ctypes.c_char_p
 
     library.bb_case_restrictions.argtypes = [
         ctypes.c_uint16,
@@ -118,20 +231,18 @@ def case_value(library, bitness, case_id, input_bits):
     ).decode("ascii")
 
 
-def test_case_value(library):
-    print(f"Check bb_gen_value ...")
-
-    for bitness, case_id, input_bits, expected in REFERENCE_CASES:
-        assert case_id < library.bb_gen_cases_number(bitness)
-        assert case_value(library, bitness, case_id, input_bits) == expected
+def case_value_rnd(library, bitness, case_id, input_bits):
+    return library.bb_gen_value_rnd(
+        bitness,
+        case_id,
+        input_bits.encode("ascii"),
+    ).decode("ascii")
 
 
 def test_case_restrictions(library):
     print(f"Check bb_case_restrictions ...")
 
-    cases = [(bitness, case_id) for bitness, case_id, _, _ in REFERENCE_CASES]
-    cases += [(bitness, case_id) for bitness, case_id, _ in SPARSE_CASES]
-    for bitness, case_id in cases:
+    for bitness, case_id, _, _, _, _ in SOLVABLE_CASES:
         free_bits = bitness - 1
         sample_size = 2 * free_bits + 1
 
@@ -169,24 +280,22 @@ def test_case_restrictions(library):
                 assert value_chunk == expected
 
 
-def test_case_depth(library):
-    print(f"Check bb_gen_depth and bb_gen_nodes ...")
-
-    for bitness, case_id, _, _ in REFERENCE_CASES:
-        depth = library.bb_gen_depth(bitness, case_id)
-        nodes = library.bb_gen_nodes(bitness, case_id)
-        assert 0 <= depth <= bitness
-        assert nodes >= 0
-
-
-def assert_case_consistent(library, bitness, case_id, input_bits, check_metrics):
+def assert_case_consistent(
+    library,
+    bitness,
+    case_id,
+    input_bits,
+    expected_value,
+    expected_depth,
+    expected_nodes,
+):
     value = case_value(library, bitness, case_id, input_bits)
     assert len(value) == 2 * bitness + 1
     assert value[:bitness] == input_bits
+    assert value == expected_value
     assert value == case_value(library, bitness, case_id, input_bits)
-    if check_metrics:
-        assert 0 <= library.bb_gen_depth(bitness, case_id) <= bitness
-        assert library.bb_gen_nodes(bitness, case_id) >= 0
+    assert library.bb_gen_depth(bitness, case_id) == expected_depth
+    assert library.bb_gen_nodes(bitness, case_id) == expected_nodes
 
     for bit_id in range(bitness):
         flipped = list(input_bits)
@@ -195,18 +304,12 @@ def assert_case_consistent(library, bitness, case_id, input_bits, check_metrics)
         assert value[bitness + 1 + bit_id] == flipped_value[bitness]
 
 
-def test_reference_cases(library):
-    print(f"Check reference cases ...")
+def test_solvable_cases(library):
+    print(f"Check solvable generated cases ...")
 
-    for bitness, case_id, input_bits, _ in REFERENCE_CASES:
-        assert_case_consistent(library, bitness, case_id, input_bits, True)
-
-
-def test_sparse_cases(library):
-    print(f"Check sparse generated cases ...")
-
-    for bitness, case_id, input_bits in SPARSE_CASES:
-        assert_case_consistent(library, bitness, case_id, input_bits, False)
+    for case in SOLVABLE_CASES:
+        bitness, case_id, input_bits, _, _, _ = case
+        assert_case_consistent(library, *case)
 
         flipped = list(input_bits)
         flipped[0] = "1" if flipped[0] == "0" else "0"
@@ -217,6 +320,24 @@ def test_sparse_cases(library):
         assert first == case_value(library, bitness, case_id, input_bits)
         assert other == case_value(library, bitness, case_id, flipped)
         assert first == case_value(library, bitness, case_id, input_bits)
+
+
+def test_random_cases(library):
+    print(f"Check bb_gen_value_rnd ...")
+
+    for bitness, case_id, input_bits, expected_value in RANDOM_CASES:
+        assert bitness > library.bb_gen_solvable_bitness(), bitness
+        value = case_value_rnd(library, bitness, case_id, input_bits)
+        assert len(value) == 2 * bitness + 1
+        assert value[:bitness] == input_bits
+        assert value == expected_value
+        assert value == case_value_rnd(library, bitness, case_id, input_bits)
+
+        for bit_id in range(bitness):
+            flipped = list(input_bits)
+            flipped[bit_id] = "1" if flipped[bit_id] == "0" else "0"
+            flipped_value = case_value_rnd(library, bitness, case_id, "".join(flipped))
+            assert value[bitness + 1 + bit_id] == flipped_value[bitness]
 
 
 def test_circuit_discovery(library):
@@ -267,11 +388,9 @@ def test_circuit_value(library):
 
 if __name__ == "__main__":
     library = load_library()
-    test_case_value(library)
     test_case_restrictions(library)
-    test_case_depth(library)
-    test_reference_cases(library)
-    test_sparse_cases(library)
+    test_solvable_cases(library)
+    test_random_cases(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)

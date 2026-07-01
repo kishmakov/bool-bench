@@ -82,6 +82,13 @@ class Generator:
         ]
         library.bb_gen_value.restype = ctypes.c_char_p
 
+        library.bb_gen_value_rnd.argtypes = [
+            ctypes.c_uint16,
+            ctypes.c_size_t,
+            ctypes.c_char_p,
+        ]
+        library.bb_gen_value_rnd.restype = ctypes.c_char_p
+
         library.bb_case_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
@@ -123,6 +130,14 @@ class Generator:
 
     def case_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
         value = self.library.bb_gen_value(
+            bitness,
+            case_id,
+            input_bits.encode("ascii"),
+        )
+        return _ascii_bits_to_signed(value, sample_point_dim(bitness))
+
+    def case_value_rnd(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
+        value = self.library.bb_gen_value_rnd(
             bitness,
             case_id,
             input_bits.encode("ascii"),
