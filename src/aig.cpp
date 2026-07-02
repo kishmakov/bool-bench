@@ -99,7 +99,7 @@ std::string JoinNames(const std::vector<std::string>& names) {
 }
 
 std::filesystem::path CircuitRoot() {
-    const std::filesystem::path source_root = std::filesystem::path(__FILE__).parent_path() / "circuits";
+    const std::filesystem::path source_root = std::filesystem::path(__FILE__).parent_path().parent_path() / "circuits";
     if (std::filesystem::exists(source_root)) {
         return source_root;
     }

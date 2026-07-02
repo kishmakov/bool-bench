@@ -21,17 +21,17 @@ if(NOT aiger_POPULATED)
 endif()
 
 add_library(bb
-    aig.cpp
-    aig.h
-    decision_tree.cpp
-    decision_tree.h
-    bool_bench.cpp
-    bool_bench.h
-    medium_bitness.cpp
-    medium_bitness.h
-    small_bitness.cpp
-    small_bitness.h
+    src/aig.cpp
+    src/aig.h
+    src/decision_tree.cpp
+    src/decision_tree.h
+    src/bool_bench.cpp
+    src/bool_bench.h
+    src/medium_bitness.cpp
+    src/medium_bitness.h
+    src/small_bitness.cpp
+    src/small_bitness.h
 )
 
-target_include_directories(bb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(bb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(bb PRIVATE aiger)
