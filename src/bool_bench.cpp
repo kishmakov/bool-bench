@@ -30,11 +30,6 @@ std::mutex g_medium_truth_tables_mutex;
 std::map<CaseKey, DecisionTree> g_decision_trees;
 std::mutex g_decision_trees_mutex;
 
-// Computes position of bit in masked sequence
-inline size_t FullBitId(size_t bit_id, size_t fixed_id) {
-    return bit_id < fixed_id ? bit_id : bit_id + 1;
-}
-
 const std::vector<bool>& GetMediumTruthTable(uint16_t bitness, size_t case_id) {
     assert(IsMediumBitness(bitness));
     assert(case_id < MediumBitnessCasesNumber(bitness));
@@ -107,29 +102,6 @@ bool EvaluateGeneratedCase(
     return GetDecisionTree(bitness, case_id).Evaluate(input);
 }
 
-void WriteCompactFlipSample(
-    std::string& value,
-    size_t sample_offset,
-    std::string& input,
-    uint16_t bitness,
-    size_t fixed_bit_id,
-    const std::function<bool(std::string_view)>& evaluate)
-{
-    const size_t free_bits = fixed_bit_id < bitness ? bitness - 1 : bitness;
-
-    for (size_t coord = 0; coord < free_bits; ++coord) {
-        value[sample_offset + coord] = input[FullBitId(coord, fixed_bit_id)];
-    }
-    value[sample_offset + free_bits] = evaluate({input.data(), bitness}) ? '1' : '0';
-    for (size_t coord = 0; coord < free_bits; ++coord) {
-        char& bit = input[FullBitId(coord, fixed_bit_id)];
-        bit = bit == '1' ? '0' : '1';
-        value[sample_offset + free_bits + 1 + coord] =
-            evaluate({input.data(), bitness}) ? '1' : '0';
-        bit = bit == '1' ? '0' : '1';
-    }
-}
-
 }  // namespace
 
 // API
@@ -164,43 +136,17 @@ const char* bb_gen_value(uint16_t bitness, size_t case_id, const char* input) {
     assert(std::strlen(input) == bitness);
 
     thread_local std::string value;
-    thread_local std::string point_input;
+    thread_local FlippingSampler sampler;
 
     value.assign(2 * bitness + 1, '0');
-    point_input.assign(input, bitness);
+    sampler.Reset(bitness, {input, bitness});
 
     const auto evaluate = [bitness, case_id](std::string_view point) {
         return EvaluateGeneratedCase(bitness, case_id, point);
     };
-    WriteCompactFlipSample(
+    sampler.Fill(
         value,
         /*sample_offset=*/0,
-        point_input,
-        bitness,
-        bitness,
-        evaluate);
-
-    return value.c_str();
-}
-
-const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) {
-    assert(bitness >= kMinTableBitness);
-    assert(case_id < bb_table_cases_number(bitness));
-    assert(input != nullptr);
-    assert(std::strlen(input) == bitness);
-
-    thread_local std::string value;
-    thread_local std::string point_input;
-
-    value.assign(2 * bitness + 1, '0');
-    point_input.assign(input, bitness);
-
-    const TableValueFunction evaluate = MakeTableValueFunction(bitness, case_id);
-    WriteCompactFlipSample(
-        value,
-        /*sample_offset=*/0,
-        point_input,
-        bitness,
         bitness,
         evaluate);
 
@@ -229,21 +175,21 @@ const char* bb_case_restrictions_impl(
 {
     assert(bitness > 0);
     if (random_sparse) {
-        assert(bitness >= kMinTableBitness);
+        assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
         assert(case_id < bb_table_cases_number(bitness));
     } else {
         assert(case_id < bb_tree_cases_number(bitness));
     }
 
     thread_local std::string value;
-    thread_local std::string input;
+    thread_local std::string sample_input;
 
     std::mt19937 rng = PrepRNG(bitness, case_id);
 
     const size_t free_bits = bitness - 1;
     const size_t sample_size = 2 * free_bits + 1;
     value.assign(bitness * 2 * sample_size, '0');
-    input.assign(bitness, '0');
+    sample_input.assign(bitness, '0');
 
     const std::function<bool(std::string_view)> evaluate =
         random_sparse
@@ -257,18 +203,17 @@ const char* bb_case_restrictions_impl(
     for (size_t fixed_bit_id = 0; fixed_bit_id < bitness; ++fixed_bit_id) {
         for (size_t fixed_bit_value = 0; fixed_bit_value <= 1; ++fixed_bit_value) {
             // Pin the fixed bit
-            input[fixed_bit_id] = static_cast<char>('0' + fixed_bit_value);
+            sample_input[fixed_bit_id] = static_cast<char>('0' + fixed_bit_value);
 
             // Sample random values for the free bits
             for (size_t coord = 0; coord < free_bits; ++coord) {
-                input[FullBitId(coord, fixed_bit_id)] = RandomBool(rng) ? '1' : '0';
+                sample_input[FullBitId(coord, fixed_bit_id)] = RandomBool(rng) ? '1' : '0';
             }
 
-            WriteCompactFlipSample(
+            FlippingSampler sampler(bitness, sample_input);
+            sampler.Fill(
                 value,
                 offset,
-                input,
-                bitness,
                 fixed_bit_id,
                 evaluate);
             offset += sample_size;

@@ -6,9 +6,11 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <mutex>
 #include <random>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -122,7 +124,7 @@ TableValueFunction MakeSparseTableValueFunction(uint16_t bitness, size_t case_id
 }  // namespace
 
 size_t bb_table_cases_number(uint16_t bitness) {
-    assert(bitness >= kMinTableBitness);
+    assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
     return kTableCasesNumber;
 }
 
@@ -130,8 +132,30 @@ uint16_t bb_table_solvable_bitness() {
     return kSolvableTableBitness;
 }
 
+const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) {
+    assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
+    assert(case_id < bb_table_cases_number(bitness));
+    assert(input != nullptr);
+    assert(std::strlen(input) == bitness);
+
+    thread_local std::string value;
+    thread_local FlippingSampler sampler;
+
+    value.assign(2 * bitness + 1, '0');
+    sampler.Reset(bitness, {input, bitness});
+
+    const TableValueFunction evaluate = MakeTableValueFunction(bitness, case_id);
+    sampler.Fill(
+        value,
+        /*sample_offset=*/0,
+        bitness,
+        evaluate);
+
+    return value.c_str();
+}
+
 TableValueFunction MakeTableValueFunction(uint16_t bitness, size_t case_id) {
-    assert(bitness >= kMinTableBitness);
+    assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
     assert(case_id < bb_table_cases_number(bitness));
 
     if (bitness <= kSolvableTableBitness) {
