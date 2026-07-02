@@ -1,4 +1,5 @@
 #include "decision_tree.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <cassert>
@@ -239,10 +240,6 @@ size_t RandomUnusedBit(const std::vector<bool>& path_used_bits, size_t free_bits
     }
     assert(false);
     return 0;
-}
-
-bool RandomBool(std::mt19937& rng) {
-    return std::uniform_int_distribution<int>(0, 1)(rng) != 0;
 }
 
 std::pair<size_t, size_t> SplitBudget(size_t n, std::mt19937& rng) {

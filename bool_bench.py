@@ -63,11 +63,11 @@ class Generator:
     def _load_library(self) -> ctypes.CDLL:
         library = ctypes.CDLL(self.library_path)
 
-        library.bb_gen_cases_number.argtypes = [ctypes.c_uint16]
-        library.bb_gen_cases_number.restype = ctypes.c_size_t
+        library.bb_tree_cases_number.argtypes = [ctypes.c_uint16]
+        library.bb_tree_cases_number.restype = ctypes.c_size_t
 
-        library.bb_gen_solvable_bitness.argtypes = []
-        library.bb_gen_solvable_bitness.restype = ctypes.c_uint16
+        library.bb_table_solvable_bitness.argtypes = []
+        library.bb_table_solvable_bitness.restype = ctypes.c_uint16
 
         library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
         library.bb_gen_nodes.restype = ctypes.c_size_t
@@ -82,12 +82,12 @@ class Generator:
         ]
         library.bb_gen_value.restype = ctypes.c_char_p
 
-        library.bb_gen_value_rnd.argtypes = [
+        library.bb_table_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_char_p,
         ]
-        library.bb_gen_value_rnd.restype = ctypes.c_char_p
+        library.bb_table_value.restype = ctypes.c_char_p
 
         library.bb_case_restrictions.argtypes = [
             ctypes.c_uint16,
@@ -124,10 +124,10 @@ class Generator:
         return library
 
     def cases_number(self, bitness: int) -> int:
-        return int(self.library.bb_gen_cases_number(bitness))
+        return int(self.library.bb_tree_cases_number(bitness))
 
     def solvable_bitness(self) -> int:
-        return int(self.library.bb_gen_solvable_bitness())
+        return int(self.library.bb_table_solvable_bitness())
 
     def case_nodes(self, bitness: int, case_id: int) -> int:
         return int(self.library.bb_gen_nodes(bitness, case_id))
@@ -144,7 +144,7 @@ class Generator:
         return _ascii_bits_to_signed(value, sample_point_dim(bitness))
 
     def case_value_rnd(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
-        value = self.library.bb_gen_value_rnd(
+        value = self.library.bb_table_value(
             bitness,
             case_id,
             input_bits.encode("ascii"),

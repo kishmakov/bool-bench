@@ -31,6 +31,10 @@ add_library(bb
     src/medium_bitness.h
     src/small_bitness.cpp
     src/small_bitness.h
+    src/table.h
+    src/table.cpp
+    src/utils.cpp
+    src/utils.h
 )
 
 target_include_directories(bb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
