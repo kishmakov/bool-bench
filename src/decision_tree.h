@@ -43,14 +43,5 @@ private:
     uint16_t bitness_;
 };
 
-// Truth table bits are indexed by input value. The uint64_t overload supports
-// bitness up to 6; the vector overload supports bitness up to 16. Exact plan
-// search is used up to bitness 6; larger tables are expanded greedily with
-// constant-restriction pruning.
-DecisionTree BuildDepthOptimalDecisionTree(uint16_t bitness, uint64_t truth_table);
-DecisionTree BuildSizeOptimalDecisionTree(uint16_t bitness, uint64_t truth_table);
-DecisionTree BuildDepthOptimalDecisionTree(uint16_t bitness, const std::vector<bool>& truth_table);
-DecisionTree BuildSizeOptimalDecisionTree(uint16_t bitness, const std::vector<bool>& truth_table);
-
 size_t SolveForDepth(uint16_t bitness, const std::vector<bool>& truth_table);
 size_t SolveForSize(uint16_t bitness, const std::vector<bool>& truth_table);

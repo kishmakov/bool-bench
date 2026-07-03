@@ -1,7 +1,5 @@
 #include "bool_bench.h"
 #include "decision_tree.h"
-#include "medium_bitness.h"
-#include "small_bitness.h"
 #include "table.h"
 #include "utils.h"
 
@@ -20,6 +18,13 @@ namespace {
 
 constexpr size_t kTableCasesNumber = size_t{1} << 32;
 
+constexpr uint16_t kMinSmallBitness = 4;
+constexpr uint16_t kMaxSmallBitness = 6;
+
+constexpr uint16_t kMinMediumBitness = 7;
+constexpr uint16_t kMaxMediumBitness = 16;
+
+
 using CaseKey = std::pair<uint16_t, size_t>;
 using SparseValueKey = std::tuple<uint16_t, size_t, std::vector<bool>>;
 
@@ -29,6 +34,51 @@ std::mutex g_medium_tables_mutex;
 std::map<SparseValueKey, bool> g_sparse_values;
 std::map<CaseKey, std::mt19937> g_sparse_random_generators;
 std::mutex g_sparse_values_mutex;
+
+bool IsSmallBitness(uint16_t bitness) {
+    return kMinSmallBitness <= bitness && bitness <= kMaxSmallBitness;
+}
+
+size_t SmallBitnessCasesNumber(uint16_t bitness) {
+    assert(IsSmallBitness(bitness));
+    switch (bitness) {
+        case 4: return 0x10000ull;
+        case 5: return 0xffffffffull;
+        case 6: return 0xffffffffull;
+        default: assert(false); return 0;
+    }
+}
+
+bool IsMediumBitness(uint16_t bitness) {
+    return kMinMediumBitness <= bitness && bitness <= kMaxMediumBitness;
+}
+
+size_t MediumBitnessCasesNumber(uint16_t bitness) {
+    assert(IsMediumBitness(bitness));
+    return kTableCasesNumber;
+}
+
+std::vector<bool> MediumBitnessTruthTable(uint16_t bitness, size_t case_id) {
+    assert(IsMediumBitness(bitness));
+    assert(case_id < MediumBitnessCasesNumber(bitness));
+
+    std::vector<bool> truth_table(size_t{1} << bitness);
+    std::seed_seq seed{
+        static_cast<uint32_t>(bitness),
+        static_cast<uint32_t>(case_id),
+    };
+    std::mt19937_64 rng(seed);
+
+    size_t input_id = 0;
+    while (input_id < truth_table.size()) {
+        const uint64_t chunk = rng();
+        for (size_t bit = 0; bit < 64 && input_id < truth_table.size(); ++bit) {
+            truth_table[input_id] = ((chunk >> bit) & 1ull) != 0;
+            ++input_id;
+        }
+    }
+    return truth_table;
+}
 
 std::vector<bool> CharsToBits(std::string_view input) {
     std::vector<bool> bits;

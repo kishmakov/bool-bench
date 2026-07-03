@@ -388,13 +388,6 @@ DecisionTree BuildDepthOptimalDecisionTree(uint16_t bitness, const std::vector<b
         TruthTableObjective::Depth).Build();
 }
 
-DecisionTree BuildSizeOptimalDecisionTree(uint16_t bitness, const std::vector<bool>& truth_table) {
-    return TruthTableTreeBuilder(
-        bitness,
-        truth_table,
-        TruthTableObjective::Size).Build();
-}
-
 namespace {
 
 // Each DP state (mask, values) is packed into a single byte:

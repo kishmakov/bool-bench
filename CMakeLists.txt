@@ -34,10 +34,6 @@ add_library(bb
     src/decision_tree.h
     src/bool_bench.cpp
     src/bool_bench.h
-    src/medium_bitness.cpp
-    src/medium_bitness.h
-    src/small_bitness.cpp
-    src/small_bitness.h
     src/table.h
     src/table.cpp
     src/utils.cpp

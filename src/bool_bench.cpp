@@ -1,8 +1,6 @@
 #include "aig.h"
 #include "bool_bench.h"
 #include "decision_tree.h"
-#include "medium_bitness.h"
-#include "small_bitness.h"
 #include "table.h"
 #include "utils.h"
 
@@ -30,34 +28,7 @@ std::mutex g_medium_truth_tables_mutex;
 std::map<CaseKey, DecisionTree> g_decision_trees;
 std::mutex g_decision_trees_mutex;
 
-const std::vector<bool>& GetMediumTruthTable(uint16_t bitness, size_t case_id) {
-    assert(IsMediumBitness(bitness));
-    assert(case_id < MediumBitnessCasesNumber(bitness));
-
-    std::lock_guard<std::mutex> lock(g_medium_truth_tables_mutex);
-
-    const CaseKey key{bitness, case_id};
-    auto it = g_medium_truth_tables.find(key);
-    if (it == g_medium_truth_tables.end()) {
-        it = g_medium_truth_tables.emplace(
-            key,
-            MediumBitnessTruthTable(bitness, case_id)).first;
-    }
-    return it->second;
-}
-
 DecisionTree BuildDecisionTree(uint16_t bitness, size_t case_id) {
-    if (IsSmallBitness(bitness)) {
-        return BuildSizeOptimalDecisionTree(
-            bitness,
-            SmallBitnessTruthTable(bitness, case_id));
-    }
-    if (IsMediumBitness(bitness)) {
-        return BuildSizeOptimalDecisionTree(
-            bitness,
-            GetMediumTruthTable(bitness, case_id));
-    }
-
     std::mt19937 rng = PrepRNG(bitness, case_id);
     DecisionTree tree(bitness);
     std::vector<bool> path_used_bits(bitness, false);
@@ -107,12 +78,6 @@ bool EvaluateGeneratedCase(
 // API
 
 size_t bb_tree_cases_number(uint16_t bitness) {
-    if (IsSmallBitness(bitness)) {
-        return SmallBitnessCasesNumber(bitness);
-    }
-    if (IsMediumBitness(bitness)) {
-        return MediumBitnessCasesNumber(bitness);
-    }
     return kCasesNumber;
 }
 
