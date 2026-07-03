@@ -75,12 +75,12 @@ class Generator:
         library.bb_gen_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
         library.bb_gen_depth.restype = ctypes.c_size_t
 
-        library.bb_gen_value.argtypes = [
+        library.bb_tree_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_char_p,
         ]
-        library.bb_gen_value.restype = ctypes.c_char_p
+        library.bb_tree_value.restype = ctypes.c_char_p
 
         library.bb_table_value.argtypes = [
             ctypes.c_uint16,
@@ -136,7 +136,7 @@ class Generator:
         return int(self.library.bb_gen_depth(bitness, case_id))
 
     def case_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
-        value = self.library.bb_gen_value(
+        value = self.library.bb_tree_value(
             bitness,
             case_id,
             input_bits.encode("ascii"),

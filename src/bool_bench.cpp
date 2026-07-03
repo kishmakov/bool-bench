@@ -1,122 +1,17 @@
 #include "aig.h"
 #include "bool_bench.h"
-#include "decision_tree.h"
 #include "table.h"
+#include "tree.h"
 #include "utils.h"
 
 #include <cassert>
 #include <cstdint>
-#include <cstring>
 #include <functional>
-#include <map>
-#include <mutex>
 #include <random>
 #include <string>
 #include <string_view>
-#include <utility>
-#include <vector>
-
-const size_t kCasesNumber = 1ull << 32; // some technical limitation
-
-namespace {
-
-using CaseKey = std::pair<uint16_t, size_t>;
-
-std::map<CaseKey, std::vector<bool>> g_medium_truth_tables;
-std::mutex g_medium_truth_tables_mutex;
-
-std::map<CaseKey, DecisionTree> g_decision_trees;
-std::mutex g_decision_trees_mutex;
-
-DecisionTree BuildDecisionTree(uint16_t bitness, size_t case_id) {
-    std::mt19937 rng = PrepRNG(bitness, case_id);
-    DecisionTree tree(bitness);
-    std::vector<bool> path_used_bits(bitness, false);
-    tree.BuildSubtree(
-        case_id,
-        path_used_bits,
-        /*path_used_count=*/0,
-        RandomBool(rng),
-        rng);
-    tree.Finalize();
-    return tree;
-}
-
-const DecisionTree& GetDecisionTree(uint16_t bitness, size_t case_id) {
-    assert(case_id < bb_tree_cases_number(bitness));
-
-    const CaseKey key{bitness, case_id};
-    {
-        std::lock_guard<std::mutex> lock(g_decision_trees_mutex);
-        auto it = g_decision_trees.find(key);
-        if (it != g_decision_trees.end()) {
-            return it->second;
-        }
-    }
-
-    DecisionTree tree = BuildDecisionTree(bitness, case_id);
-
-    std::lock_guard<std::mutex> lock(g_decision_trees_mutex);
-    auto it = g_decision_trees.find(key);
-    if (it == g_decision_trees.end()) {
-        it = g_decision_trees.emplace(key, std::move(tree)).first;
-    }
-    return it->second;
-}
-
-bool EvaluateGeneratedCase(
-    uint16_t bitness,
-    size_t case_id,
-    std::string_view input)
-{
-    assert(input.size() == bitness);
-    return GetDecisionTree(bitness, case_id).Evaluate(input);
-}
-
-}  // namespace
 
 // API
-
-size_t bb_tree_cases_number(uint16_t bitness) {
-    return kCasesNumber;
-}
-
-size_t bb_gen_nodes(uint16_t bitness, size_t case_id) {
-    assert(case_id < bb_tree_cases_number(bitness));
-
-    const DecisionTree& tree = GetDecisionTree(bitness, case_id);
-    return tree.nodes.size() - tree.num_leafs;
-}
-
-size_t bb_gen_depth(uint16_t bitness, size_t case_id) {
-    assert(case_id < bb_tree_cases_number(bitness));
-
-    const DecisionTree& tree = GetDecisionTree(bitness, case_id);
-    return tree.depth;
-}
-
-const char* bb_gen_value(uint16_t bitness, size_t case_id, const char* input) {
-    assert(case_id < bb_tree_cases_number(bitness));
-    assert(input != nullptr);
-    assert(std::strlen(input) == bitness);
-
-    thread_local std::string value;
-    thread_local FlippingSampler sampler;
-
-    value.assign(2 * bitness + 1, '0');
-    sampler.Reset(bitness, {input, bitness});
-
-    const auto evaluate = [bitness, case_id](std::string_view point) {
-        return EvaluateGeneratedCase(bitness, case_id, point);
-    };
-    sampler.Fill(
-        value,
-        /*sample_offset=*/0,
-        bitness,
-        evaluate);
-
-    return value.c_str();
-}
 
 const char* bb_case_restrictions_impl(
     uint16_t bitness,
@@ -161,7 +56,7 @@ const char* bb_case_restrictions_impl(
             ? MakeTableValueFunction(bitness, case_id)
             : std::function<bool(std::string_view)>(
                 [bitness, case_id](std::string_view point) {
-                    return EvaluateGeneratedCase(bitness, case_id, point);
+                    return EvaluateTreeCase(bitness, case_id, point);
                 });
 
     size_t offset = 0;

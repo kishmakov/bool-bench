@@ -36,6 +36,8 @@ add_library(bb
     src/bool_bench.h
     src/table.h
     src/table.cpp
+    src/tree.cpp
+    src/tree.h
     src/utils.cpp
     src/utils.h
 )
