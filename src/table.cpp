@@ -6,10 +6,12 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <random>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -27,6 +29,7 @@ constexpr uint16_t kMaxMediumBitness = 16;
 
 using CaseKey = std::pair<uint16_t, size_t>;
 using SparseValueKey = std::tuple<uint16_t, size_t, std::vector<bool>>;
+using TableValueFunction = std::function<bool(std::string_view)>;
 
 std::map<CaseKey, std::vector<bool>> g_medium_tables;
 std::mutex g_medium_tables_mutex;
@@ -185,6 +188,21 @@ TableValueFunction MakeSparseTableValueFunction(uint16_t bitness, size_t case_id
     };
 }
 
+TableValueFunction MakeTableValueFunction(uint16_t bitness, size_t case_id) {
+    assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
+    assert(case_id < bb_table_cases_number(bitness));
+
+    if (IsSmallBitness(bitness)) {
+        return MakeSmallTableValueFunction(bitness, case_id);
+    }
+
+    if (IsMediumBitness(bitness)) {
+        return MakeDenseTableValueFunction(bitness, case_id);
+    }
+
+    return MakeSparseTableValueFunction(bitness, case_id);
+}
+
 }  // namespace
 
 size_t bb_table_cases_number(uint16_t bitness) {
@@ -273,19 +291,4 @@ size_t bb_table_depth(uint16_t bitness, size_t case_id) {
     assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
     const std::vector<bool> table = SolvableTableVector(bitness, case_id);
     return SolveForDepth(bitness, table);
-}
-
-TableValueFunction MakeTableValueFunction(uint16_t bitness, size_t case_id) {
-    assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
-    assert(case_id < bb_table_cases_number(bitness));
-
-    if (IsSmallBitness(bitness)) {
-        return MakeSmallTableValueFunction(bitness, case_id);
-    }
-
-    if (IsMediumBitness(bitness)) {
-        return MakeDenseTableValueFunction(bitness, case_id);
-    }
-
-    return MakeSparseTableValueFunction(bitness, case_id);
 }

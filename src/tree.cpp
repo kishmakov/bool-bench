@@ -8,6 +8,7 @@
 #include <map>
 #include <random>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -42,6 +43,15 @@ const DecisionTree& GetDecisionTree(uint16_t bitness, size_t case_id) {
     return it->second;
 }
 
+bool EvaluateTreeCase(
+    uint16_t bitness,
+    size_t case_id,
+    std::string_view input)
+{
+    assert(input.size() == bitness);
+    return GetDecisionTree(bitness, case_id).Evaluate(input);
+}
+
 }  // namespace
 
 size_t bb_tree_cases_number(uint16_t bitness) {
@@ -61,15 +71,6 @@ size_t bb_tree_depth(uint16_t bitness, size_t case_id) {
 
     const DecisionTree& tree = GetDecisionTree(bitness, case_id);
     return tree.depth;
-}
-
-bool EvaluateTreeCase(
-    uint16_t bitness,
-    size_t case_id,
-    std::string_view input)
-{
-    assert(input.size() == bitness);
-    return GetDecisionTree(bitness, case_id).Evaluate(input);
 }
 
 const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input) {
