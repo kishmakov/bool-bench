@@ -1,4 +1,5 @@
 #include "bool_bench.h"
+#include "decision_tree.h"
 #include "medium_bitness.h"
 #include "small_bitness.h"
 #include "table.h"
@@ -29,7 +30,7 @@ std::map<SparseValueKey, bool> g_sparse_values;
 std::map<CaseKey, std::mt19937> g_sparse_random_generators;
 std::mutex g_sparse_values_mutex;
 
-std::vector<bool> InputBits(std::string_view input) {
+std::vector<bool> CharsToBits(std::string_view input) {
     std::vector<bool> bits;
     bits.reserve(input.size());
     for (char bit : input) {
@@ -39,7 +40,7 @@ std::vector<bool> InputBits(std::string_view input) {
     return bits;
 }
 
-size_t InputId(std::string_view input) {
+size_t CharsToNum(std::string_view input) {
     assert(input.size() <= kSolvableTableBitness);
 
     size_t id = 0;
@@ -50,16 +51,6 @@ size_t InputId(std::string_view input) {
         }
     }
     return id;
-}
-
-uint64_t SmallTableMask(uint16_t bitness) {
-    assert(IsSmallBitness(bitness));
-    switch (bitness) {
-        case 4: return 0xffffull;
-        case 5: return 0xffffffffull;
-        case 6: return 0xffffffffffffffffull;
-        default: assert(false); return 0;
-    }
 }
 
 const std::vector<bool>& GetMediumTable(uint16_t bitness, size_t case_id) {
@@ -78,20 +69,43 @@ const std::vector<bool>& GetMediumTable(uint16_t bitness, size_t case_id) {
     return it->second;
 }
 
-TableValueFunction MakeDenseTableValueFunction(uint16_t bitness, size_t case_id) {
-    if (IsSmallBitness(bitness)) {
-        const uint64_t table = case_id & SmallTableMask(bitness);
-        return [bitness, table](std::string_view input) {
-            assert(input.size() == bitness);
-            return ((table >> InputId(input)) & 1ull) != 0;
-        };
-    }
+std::vector<bool> SmallTableVector(uint16_t bitness, size_t case_id) {
+    assert(IsSmallBitness(bitness));
+    assert(case_id < SmallBitnessCasesNumber(bitness));
 
+    std::vector<bool> table(size_t{1} << bitness);
+    for (size_t input_id = 0; input_id < table.size(); ++input_id) {
+        table[input_id] = ((case_id >> input_id) & 1ull) != 0;
+    }
+    return table;
+}
+
+std::vector<bool> SolvableTableVector(uint16_t bitness, size_t case_id) {
+    assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
+    assert(case_id < bb_table_cases_number(bitness));
+
+    if (IsSmallBitness(bitness)) {
+        return SmallTableVector(bitness, case_id);
+    }
+    return GetMediumTable(bitness, case_id);
+}
+
+TableValueFunction MakeSmallTableValueFunction(uint16_t bitness, size_t case_id) {
+    assert(IsSmallBitness(bitness));
+    assert(case_id < SmallBitnessCasesNumber(bitness));
+
+    return [bitness, case_id](std::string_view input) {
+        assert(input.size() == bitness);
+        return ((case_id >> CharsToNum(input)) & 1ull) != 0;
+    };
+}
+
+TableValueFunction MakeDenseTableValueFunction(uint16_t bitness, size_t case_id) {
     assert(IsMediumBitness(bitness));
     const std::vector<bool>& table = GetMediumTable(bitness, case_id);
     return [bitness, &table](std::string_view input) {
         assert(input.size() == bitness);
-        return table[InputId(input)];
+        return table[CharsToNum(input)];
     };
 }
 
@@ -102,7 +116,7 @@ TableValueFunction MakeSparseTableValueFunction(uint16_t bitness, size_t case_id
     return [bitness, case_id](std::string_view input) {
         assert(input.size() == bitness);
 
-        const std::vector<bool> input_bits = InputBits(input);
+        const std::vector<bool> input_bits = CharsToBits(input);
         const SparseValueKey key{bitness, case_id, input_bits};
         std::lock_guard<std::mutex> lock(g_sparse_values_mutex);
 
@@ -125,6 +139,12 @@ TableValueFunction MakeSparseTableValueFunction(uint16_t bitness, size_t case_id
 
 size_t bb_table_cases_number(uint16_t bitness) {
     assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
+    if (IsSmallBitness(bitness)) {
+        return SmallBitnessCasesNumber(bitness);
+    }
+    if (IsMediumBitness(bitness)) {
+        return MediumBitnessCasesNumber(bitness);
+    }
     return kTableCasesNumber;
 }
 
@@ -136,7 +156,7 @@ const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) 
     assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
     assert(case_id < bb_table_cases_number(bitness));
     assert(input != nullptr);
-    assert(std::strlen(input) == bitness);
+    assert(std::strlen(input) >= bitness);
 
     thread_local std::string value;
     thread_local FlippingSampler sampler;
@@ -154,12 +174,31 @@ const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) 
     return value.c_str();
 }
 
+size_t bb_table_nodes(uint16_t bitness, size_t case_id) {
+    assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
+    const std::vector<bool> table = SolvableTableVector(bitness, case_id);
+    const DecisionTree tree = BuildSizeOptimalDecisionTree(bitness, table);
+    return tree.nodes.size() - tree.num_leafs;
+}
+
+size_t bb_table_depth(uint16_t bitness, size_t case_id) {
+    assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
+    const std::vector<bool> table = SolvableTableVector(bitness, case_id);
+    const DecisionTree tree = BuildDepthOptimalDecisionTree(bitness, table);
+    return tree.depth;
+}
+
 TableValueFunction MakeTableValueFunction(uint16_t bitness, size_t case_id) {
     assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
     assert(case_id < bb_table_cases_number(bitness));
 
-    if (bitness <= kSolvableTableBitness) {
+    if (IsSmallBitness(bitness)) {
+        return MakeSmallTableValueFunction(bitness, case_id);
+    }
+
+    if (IsMediumBitness(bitness)) {
         return MakeDenseTableValueFunction(bitness, case_id);
     }
+
     return MakeSparseTableValueFunction(bitness, case_id);
 }

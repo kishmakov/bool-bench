@@ -58,6 +58,11 @@ uint16_t bb_table_solvable_bitness();
 // assigned lazily at random and cached for consistent subsequent queries.
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
 
+// Number of nodes or depth for given case
+size_t bb_table_nodes(uint16_t bitness, size_t case_id);
+size_t bb_table_depth(uint16_t bitness, size_t case_id);
+
+
 /********************************* 3rd type ***********************************/
 
 // Returns sorted newline-separated circuit set names discovered in circuits/

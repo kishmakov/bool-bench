@@ -154,6 +154,12 @@ def load_library():
     ]
     library.bb_table_value.restype = ctypes.c_char_p
 
+    library.bb_table_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_table_nodes.restype = ctypes.c_size_t
+
+    library.bb_table_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_table_depth.restype = ctypes.c_size_t
+
     library.bb_case_restrictions.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
@@ -340,6 +346,16 @@ def test_random_cases(library):
             assert value[bitness + 1 + bit_id] == flipped_value[bitness]
 
 
+def test_table_metrics(library):
+    print(f"Check bb_table_nodes/depth ...")
+
+    assert library.bb_table_nodes(4, 3190) == 7
+    assert library.bb_table_depth(4, 3190) == 4
+
+    assert library.bb_table_nodes(7, 42) == 77
+    assert library.bb_table_depth(7, 42) == 7
+
+
 def test_circuit_discovery(library):
     print(f"Check bb_circuit discovery ...")
 
@@ -391,6 +407,7 @@ if __name__ == "__main__":
     test_case_restrictions(library)
     test_solvable_cases(library)
     test_random_cases(library)
+    test_table_metrics(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)
