@@ -177,8 +177,7 @@ const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) 
 size_t bb_table_nodes(uint16_t bitness, size_t case_id) {
     assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
     const std::vector<bool> table = SolvableTableVector(bitness, case_id);
-    const DecisionTree tree = BuildSizeOptimalDecisionTree(bitness, table);
-    return tree.nodes.size() - tree.num_leafs;
+    return SolveForSize(bitness, table);
 }
 
 size_t bb_table_depth(uint16_t bitness, size_t case_id) {

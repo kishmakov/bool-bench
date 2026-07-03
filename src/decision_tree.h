@@ -53,3 +53,4 @@ DecisionTree BuildDepthOptimalDecisionTree(uint16_t bitness, const std::vector<b
 DecisionTree BuildSizeOptimalDecisionTree(uint16_t bitness, const std::vector<bool>& truth_table);
 
 size_t SolveForDepth(uint16_t bitness, const std::vector<bool>& truth_table);
+size_t SolveForSize(uint16_t bitness, const std::vector<bool>& truth_table);

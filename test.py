@@ -349,11 +349,25 @@ def test_random_cases(library):
 def test_table_metrics(library):
     print(f"Check bb_table_nodes/depth ...")
 
-    assert library.bb_table_nodes(4, 3190) == 7
-    assert library.bb_table_depth(4, 3190) == 4
+    table_metrics = [
+        (library.bb_table_nodes, 4, 3190, 7),
+        (library.bb_table_depth, 4, 3190, 4),
+        (library.bb_table_nodes, 7, 42, 59),
+        (library.bb_table_depth, 7, 42, 7),
+        (library.bb_table_nodes, 7, 239, 58),
+        (library.bb_table_depth, 7, 239, 7),
+        (library.bb_table_nodes, 11, 23901, 842),
+        (library.bb_table_depth, 11, 23901, 11),
+        (library.bb_table_nodes, 16, 239566, 26543),
+        (library.bb_table_depth, 16, 239566, 16),
+    ]
 
-    assert library.bb_table_nodes(7, 42) == 77
-    assert library.bb_table_depth(7, 42) == 7
+    for function, bitness, case_id, expected in table_metrics:
+        actual = function(bitness, case_id)
+        assert actual == expected, (
+            f"{function.__name__}({bitness}, {case_id}): "
+            f"actual={actual}, expected={expected}"
+        )
 
 
 def test_circuit_discovery(library):
