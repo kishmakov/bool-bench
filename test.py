@@ -5,7 +5,7 @@ from pathlib import Path
 LIBRARY = Path(__file__).resolve().parent / "build" / "libbb.so"
 CIRCUITS = Path(__file__).resolve().parent / "circuits"
 
-SOLVABLE_CASES = [
+TABLE_SOLVABLE_CASES = [
     (4, 0, "0101", "010100000", 0, 0),
     (4, 3190, "0001", "000100100", 4, 7),
     (4, 11304, "1101", "110111001", 4, 6),
@@ -13,15 +13,53 @@ SOLVABLE_CASES = [
     (5, 390455940, "01001", "01001101111", 5, 16),
     (6, 2547012052, "110111", "1101110000000", 6, 16),
     (6, 883941716, "011111", "0111110000000", 6, 17),
-    (7, 42, "0101010", "010101000010010", 7, 77),
+    (7, 42, "0101010", "010101000010010", 7, 59),
+    (7, 239, "1010101", "101010110101101", 7, 58),
+    (
+        11,
+        23901,
+        "01010101010",
+        "01010101010011100010111",
+        11,
+        842,
+    ),
     (
         16,
         42,
         "0101010101010101",
         "010101010101010100111110101000000",
         16,
-        40170,
+        26467,
     ),
+    (
+        16,
+        239566,
+        "1010101010101010",
+        "101010101010101000110101001010010",
+        16,
+        26543,
+    ),
+]
+
+TABLE_BIG_CASES = [
+    (17, 42, "01010101010101010"),
+    (24, 188, "110010100111000101010011"),
+    (32, 320, "01010101010101010101010101010101"),
+    (48, 480, "110010101100101011001010110010101100101011001010"),
+    (64, 640, "0011010100110101001101010011010100110101001101010011010100110101"),
+    (
+        100,
+        1000,
+        "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
+    ),
+    (
+        128,
+        1280,
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
+    ),
+]
+
+TREE_CASES = [
     (
         17,
         42,
@@ -77,51 +115,6 @@ SOLVABLE_CASES = [
         "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110111111111111111101111111111111111111011111111111111111111111111111111111111111111111111111111111111111111111110111111111111111111",
         23,
         1280,
-    ),
-]
-
-RANDOM_CASES = [
-    (
-        17,
-        42,
-        "01010101010101010",
-        "01010101010101010111000000111000110",
-    ),
-    (
-        24,
-        188,
-        "110010100111000101010011",
-        "1100101001110001010100111010111010101001011101101",
-    ),
-    (
-        32,
-        320,
-        "01010101010101010101010101010101",
-        "01010101010101010101010101010101011000000101101101000111000101001",
-    ),
-    (
-        48,
-        480,
-        "110010101100101011001010110010101100101011001010",
-        "1100101011001010110010101100101011001010110010100001011011000001001010110100000110011111101011011",
-    ),
-    (
-        64,
-        640,
-        "0011010100110101001101010011010100110101001101010011010100110101",
-        "001101010011010100110101001101010011010100110101001101010011010101110100101111001010111011010001111101000011000011001000011110110",
-    ),
-    (
-        100,
-        1000,
-        "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
-        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001101101100011010001101100111110110110000101011001010010010000100100011010100100110010101010011110011001",
-    ),
-    (
-        128,
-        1280,
-        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
-        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110001100110000111111001001101111110101010111011001001011111100100001011001001101001001011011011110111000110101111011101010101101100",
     ),
 ]
 
@@ -229,7 +222,7 @@ def circuit_value(library, set_name, case_name, input_state):
     ).decode("ascii")
 
 
-def case_value(library, bitness, case_id, input_bits):
+def tree_value(library, bitness, case_id, input_bits):
     return library.bb_tree_value(
         bitness,
         case_id,
@@ -237,7 +230,7 @@ def case_value(library, bitness, case_id, input_bits):
     ).decode("ascii")
 
 
-def case_value_rnd(library, bitness, case_id, input_bits):
+def table_value(library, bitness, case_id, input_bits):
     return library.bb_table_value(
         bitness,
         case_id,
@@ -245,48 +238,50 @@ def case_value_rnd(library, bitness, case_id, input_bits):
     ).decode("ascii")
 
 
-def test_case_restrictions(library):
-    print(f"Check bb_case_restrictions ...")
+def assert_tree_case_restrictions_consistent(library, bitness, case_id):
+    free_bits = bitness - 1
+    sample_size = 2 * free_bits + 1
 
-    for bitness, case_id, _, _, _, _ in SOLVABLE_CASES:
-        free_bits = bitness - 1
-        sample_size = 2 * free_bits + 1
+    value = library.bb_case_restrictions(
+        bitness,
+        case_id,
+        0,
+    ).decode("ascii")
+    assert len(value) == bitness * 2 * sample_size
 
-        value = library.bb_case_restrictions(
-            bitness,
-            case_id,
-            0,
-        ).decode("ascii")
-        assert len(value) == bitness * 2 * sample_size
+    for fixed_bit_id in range(bitness):
+        for fixed_bit_value in range(2):
+            restriction_id = fixed_bit_id * 2 + fixed_bit_value
+            offset = restriction_id * sample_size
+            value_chunk = value[offset : offset + sample_size]
 
-        for fixed_bit_id in range(bitness):
-            for fixed_bit_value in range(2):
-                restriction_id = fixed_bit_id * 2 + fixed_bit_value
-                offset = restriction_id * sample_size
-                value_chunk = value[offset : offset + sample_size]
+            full_input = list("0" * bitness)
+            full_input[fixed_bit_id] = str(fixed_bit_value)
+            for coord, bit_value in enumerate(value_chunk[:free_bits]):
+                full_bit_id = coord if coord < fixed_bit_id else coord + 1
+                full_input[full_bit_id] = bit_value
+            full_input = "".join(full_input)
 
-                full_input = list("0" * bitness)
-                full_input[fixed_bit_id] = str(fixed_bit_value)
-                for coord, bit_value in enumerate(value_chunk[:free_bits]):
-                    full_bit_id = coord if coord < fixed_bit_id else coord + 1
-                    full_input[full_bit_id] = bit_value
-                full_input = "".join(full_input)
-
-                direct_value = case_value(library, bitness, case_id, full_input)
-                expected = (
-                    value_chunk[:free_bits]
-                    + direct_value[bitness]
-                    + "".join(
-                        direct_value[bitness + 1 + full_bit_id]
-                        for full_bit_id in range(bitness)
-                        if full_bit_id != fixed_bit_id
-                    )
+            direct_value = tree_value(library, bitness, case_id, full_input)
+            expected = (
+                value_chunk[:free_bits]
+                + direct_value[bitness]
+                + "".join(
+                    direct_value[bitness + 1 + full_bit_id]
+                    for full_bit_id in range(bitness)
+                    if full_bit_id != fixed_bit_id
                 )
+            )
 
-                assert value_chunk == expected
+            assert value_chunk == expected, (
+                f"bb_case_restrictions({bitness}, {case_id}) mismatch: "
+                f"fixed_bit_id={fixed_bit_id}, "
+                f"fixed_bit_value={fixed_bit_value}, "
+                f"actual={value_chunk}, expected={expected}"
+            )
 
 
-def assert_case_consistent(
+def assert_tree_case_consistent(
     library,
     bitness,
     case_id,
@@ -295,79 +290,145 @@ def assert_case_consistent(
     expected_depth,
     expected_nodes,
 ):
-    value = case_value(library, bitness, case_id, input_bits)
-    assert len(value) == 2 * bitness + 1
-    assert value[:bitness] == input_bits
-    assert value == expected_value
-    assert value == case_value(library, bitness, case_id, input_bits)
-    assert library.bb_gen_depth(bitness, case_id) == expected_depth
-    assert library.bb_gen_nodes(bitness, case_id) == expected_nodes
+    value = tree_value(library, bitness, case_id, input_bits)
+    assert len(value) == 2 * bitness + 1, (
+        f"bb_tree_value({bitness}, {case_id}, {input_bits}) length: "
+        f"actual={len(value)}, expected={2 * bitness + 1}, value={value}"
+    )
+    assert value[:bitness] == input_bits, (
+        f"bb_tree_value({bitness}, {case_id}, {input_bits}) input prefix: "
+        f"actual={value[:bitness]}, expected={input_bits}, value={value}"
+    )
+    assert value == expected_value, (
+        f"bb_tree_value({bitness}, {case_id}, {input_bits}): "
+        f"actual={value}, expected={expected_value}"
+    )
+
+    repeat_value = tree_value(library, bitness, case_id, input_bits)
+    assert value == repeat_value, (
+        f"bb_tree_value({bitness}, {case_id}, {input_bits}) is not stable: "
+        f"first={value}, second={repeat_value}"
+    )
+
+    depth = library.bb_gen_depth(bitness, case_id)
+    assert depth == expected_depth, (
+        f"bb_gen_depth({bitness}, {case_id}): "
+        f"actual={depth}, expected={expected_depth}"
+    )
+    nodes = library.bb_gen_nodes(bitness, case_id)
+    assert nodes == expected_nodes, (
+        f"bb_gen_nodes({bitness}, {case_id}): "
+        f"actual={nodes}, expected={expected_nodes}"
+    )
 
     for bit_id in range(bitness):
         flipped = list(input_bits)
         flipped[bit_id] = "1" if flipped[bit_id] == "0" else "0"
-        flipped_value = case_value(library, bitness, case_id, "".join(flipped))
-        assert value[bitness + 1 + bit_id] == flipped_value[bitness]
+        flipped_value = tree_value(library, bitness, case_id, "".join(flipped))
+        assert value[bitness + 1 + bit_id] == flipped_value[bitness], (
+            f"bb_tree_value({bitness}, {case_id}, {input_bits}) "
+            f"flip bit {bit_id}: sampled={value[bitness + 1 + bit_id]}, "
+            f"direct={flipped_value[bitness]}, flipped_input={''.join(flipped)}"
+        )
 
 
-def test_solvable_cases(library):
-    print(f"Check solvable generated cases ...")
+def assert_table_solvable_case_consistent(
+    library,
+    bitness,
+    case_id,
+    input_bits,
+    expected_value,
+    expected_depth,
+    expected_nodes,
+):
+    value = table_value(library, bitness, case_id, input_bits)
+    assert len(value) == 2 * bitness + 1, (
+        f"bb_table_value({bitness}, {case_id}, {input_bits}) length: "
+        f"actual={len(value)}, expected={2 * bitness + 1}, value={value}"
+    )
+    assert value[:bitness] == input_bits, (
+        f"bb_table_value({bitness}, {case_id}, {input_bits}) input prefix: "
+        f"actual={value[:bitness]}, expected={input_bits}, value={value}"
+    )
+    assert value == expected_value, (
+        f"bb_table_value({bitness}, {case_id}, {input_bits}): "
+        f"actual={value}, expected={expected_value}"
+    )
 
-    for case in SOLVABLE_CASES:
+    repeat_value = table_value(library, bitness, case_id, input_bits)
+    assert value == repeat_value, (
+        f"bb_table_value({bitness}, {case_id}, {input_bits}) is not stable: "
+        f"first={value}, second={repeat_value}"
+    )
+
+    depth = library.bb_table_depth(bitness, case_id)
+    assert depth == expected_depth, (
+        f"bb_table_depth({bitness}, {case_id}): "
+        f"actual={depth}, expected={expected_depth}"
+    )
+    nodes = library.bb_table_nodes(bitness, case_id)
+    assert nodes == expected_nodes, (
+        f"bb_table_nodes({bitness}, {case_id}): "
+        f"actual={nodes}, expected={expected_nodes}"
+    )
+
+
+def test_tree_cases(library):
+    print(f"Check tree cases ...")
+
+    for case in TREE_CASES:
         bitness, case_id, input_bits, _, _, _ = case
-        assert_case_consistent(library, *case)
+        assert_tree_case_consistent(library, *case)
+        assert_tree_case_restrictions_consistent(library, bitness, case_id)
 
         flipped = list(input_bits)
         flipped[0] = "1" if flipped[0] == "0" else "0"
         flipped = "".join(flipped)
 
-        first = case_value(library, bitness, case_id, input_bits)
-        other = case_value(library, bitness, case_id, flipped)
-        assert first == case_value(library, bitness, case_id, input_bits)
-        assert other == case_value(library, bitness, case_id, flipped)
-        assert first == case_value(library, bitness, case_id, input_bits)
+        first = tree_value(library, bitness, case_id, input_bits)
+        other = tree_value(library, bitness, case_id, flipped)
+        first_repeat = tree_value(library, bitness, case_id, input_bits)
+        other_repeat = tree_value(library, bitness, case_id, flipped)
+        assert first == first_repeat, (
+            f"bb_tree_value({bitness}, {case_id}, {input_bits}) repeat: "
+            f"first={first}, second={first_repeat}"
+        )
+        assert other == other_repeat, (
+            f"bb_tree_value({bitness}, {case_id}, {flipped}) repeat: "
+            f"first={other}, second={other_repeat}"
+        )
 
 
-def test_random_cases(library):
-    print(f"Check bb_table_value ...")
+def test_table_solvable_cases(library):
+    print(f"Check solvable table cases ...")
 
-    for bitness, case_id, input_bits, expected_value in RANDOM_CASES:
+    for case in TABLE_SOLVABLE_CASES:
+        assert_table_solvable_case_consistent(library, *case)
+
+
+def test_table_big_cases(library):
+    print(f"Check big table cases ...")
+
+    for bitness, case_id, input_bits in TABLE_BIG_CASES:
         assert bitness > library.bb_table_solvable_bitness(), bitness
-        value = case_value_rnd(library, bitness, case_id, input_bits)
+        value = table_value(library, bitness, case_id, input_bits)
         assert len(value) == 2 * bitness + 1
         assert value[:bitness] == input_bits
-        assert value == expected_value
-        assert value == case_value_rnd(library, bitness, case_id, input_bits)
+        repeat_value = table_value(library, bitness, case_id, input_bits)
+        assert value == repeat_value, (
+            f"bb_table_value({bitness}, {case_id}, {input_bits}) is not stable: "
+            f"first={value}, second={repeat_value}"
+        )
 
         for bit_id in range(bitness):
             flipped = list(input_bits)
             flipped[bit_id] = "1" if flipped[bit_id] == "0" else "0"
-            flipped_value = case_value_rnd(library, bitness, case_id, "".join(flipped))
-            assert value[bitness + 1 + bit_id] == flipped_value[bitness]
-
-
-def test_table_metrics(library):
-    print(f"Check bb_table_nodes/depth ...")
-
-    table_metrics = [
-        (library.bb_table_nodes, 4, 3190, 7),
-        (library.bb_table_depth, 4, 3190, 4),
-        (library.bb_table_nodes, 7, 42, 59),
-        (library.bb_table_depth, 7, 42, 7),
-        (library.bb_table_nodes, 7, 239, 58),
-        (library.bb_table_depth, 7, 239, 7),
-        (library.bb_table_nodes, 11, 23901, 842),
-        (library.bb_table_depth, 11, 23901, 11),
-        (library.bb_table_nodes, 16, 239566, 26543),
-        (library.bb_table_depth, 16, 239566, 16),
-    ]
-
-    for function, bitness, case_id, expected in table_metrics:
-        actual = function(bitness, case_id)
-        assert actual == expected, (
-            f"{function.__name__}({bitness}, {case_id}): "
-            f"actual={actual}, expected={expected}"
-        )
+            flipped_value = table_value(library, bitness, case_id, "".join(flipped))
+            assert value[bitness + 1 + bit_id] == flipped_value[bitness], (
+                f"bb_table_value({bitness}, {case_id}, {input_bits}) "
+                f"flip bit {bit_id}: sampled={value[bitness + 1 + bit_id]}, "
+                f"direct={flipped_value[bitness]}, flipped_input={''.join(flipped)}"
+            )
 
 
 def test_circuit_discovery(library):
@@ -418,10 +479,9 @@ def test_circuit_value(library):
 
 if __name__ == "__main__":
     library = load_library()
-    test_case_restrictions(library)
-    test_solvable_cases(library)
-    test_random_cases(library)
-    test_table_metrics(library)
+    test_tree_cases(library)
+    test_table_solvable_cases(library)
+    test_table_big_cases(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)
