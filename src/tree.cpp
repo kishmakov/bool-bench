@@ -49,14 +49,14 @@ size_t bb_tree_cases_number(uint16_t bitness) {
     return kTreeCasesNumber;
 }
 
-size_t bb_gen_nodes(uint16_t bitness, size_t case_id) {
+size_t bb_tree_nodes(uint16_t bitness, size_t case_id) {
     assert(case_id < bb_tree_cases_number(bitness));
 
     const DecisionTree& tree = GetDecisionTree(bitness, case_id);
     return tree.nodes.size() - tree.num_leafs;
 }
 
-size_t bb_gen_depth(uint16_t bitness, size_t case_id) {
+size_t bb_tree_depth(uint16_t bitness, size_t case_id) {
     assert(case_id < bb_tree_cases_number(bitness));
 
     const DecisionTree& tree = GetDecisionTree(bitness, case_id);
@@ -91,6 +91,46 @@ const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input) {
         /*sample_offset=*/0,
         bitness,
         evaluate);
+
+    return value.c_str();
+}
+
+const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
+    assert(case_id < bb_tree_cases_number(bitness));
+    (void)rep;
+
+    thread_local std::string value;
+    thread_local std::string sample_input;
+
+    std::mt19937 rng = PrepRNG(bitness, case_id);
+
+    const size_t free_bits = bitness - 1;
+    const size_t sample_size = 2 * free_bits + 1;
+    value.assign(bitness * 2 * sample_size, '0');
+    sample_input.assign(bitness, '0');
+
+    const auto evaluate = [bitness, case_id](std::string_view point) {
+        return EvaluateTreeCase(bitness, case_id, point);
+    };
+
+    size_t offset = 0;
+    for (size_t fixed_bit_id = 0; fixed_bit_id < bitness; ++fixed_bit_id) {
+        for (size_t fixed_bit_value = 0; fixed_bit_value <= 1; ++fixed_bit_value) {
+            sample_input[fixed_bit_id] = static_cast<char>('0' + fixed_bit_value);
+
+            for (size_t coord = 0; coord < free_bits; ++coord) {
+                sample_input[FullBitId(coord, fixed_bit_id)] = RandomBool(rng) ? '1' : '0';
+            }
+
+            FlippingSampler sampler(bitness, sample_input);
+            sampler.Fill(
+                value,
+                offset,
+                fixed_bit_id,
+                evaluate);
+            offset += sample_size;
+        }
+    }
 
     return value.c_str();
 }

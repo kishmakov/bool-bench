@@ -69,11 +69,11 @@ class Generator:
         library.bb_table_solvable_bitness.argtypes = []
         library.bb_table_solvable_bitness.restype = ctypes.c_uint16
 
-        library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_gen_nodes.restype = ctypes.c_size_t
+        library.bb_tree_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_tree_nodes.restype = ctypes.c_size_t
 
-        library.bb_gen_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_gen_depth.restype = ctypes.c_size_t
+        library.bb_tree_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+        library.bb_tree_depth.restype = ctypes.c_size_t
 
         library.bb_tree_value.argtypes = [
             ctypes.c_uint16,
@@ -89,19 +89,19 @@ class Generator:
         ]
         library.bb_table_value.restype = ctypes.c_char_p
 
-        library.bb_case_restrictions.argtypes = [
+        library.bb_tree_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_size_t,
         ]
-        library.bb_case_restrictions.restype = ctypes.c_char_p
+        library.bb_tree_restrictions.restype = ctypes.c_char_p
 
-        library.bb_case_restrictions_rnd.argtypes = [
+        library.bb_table_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_size_t,
         ]
-        library.bb_case_restrictions_rnd.restype = ctypes.c_char_p
+        library.bb_table_restrictions.restype = ctypes.c_char_p
 
         library.bb_circuit_sets.argtypes = []
         library.bb_circuit_sets.restype = ctypes.c_char_p
@@ -130,10 +130,10 @@ class Generator:
         return int(self.library.bb_table_solvable_bitness())
 
     def case_nodes(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_gen_nodes(bitness, case_id))
+        return int(self.library.bb_tree_nodes(bitness, case_id))
 
     def case_depth(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_gen_depth(bitness, case_id))
+        return int(self.library.bb_tree_depth(bitness, case_id))
 
     def case_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
         value = self.library.bb_tree_value(
@@ -180,7 +180,10 @@ class Generator:
         return samples
 
     def case_restrictions(self, bitness: int, case_id: int, rep: int) -> np.ndarray:
-        value = self.library.bb_case_restrictions(
+        return self.tree_restrictions(bitness, case_id, rep)
+
+    def tree_restrictions(self, bitness: int, case_id: int, rep: int) -> np.ndarray:
+        value = self.library.bb_tree_restrictions(
             bitness,
             case_id,
             rep,
@@ -195,7 +198,15 @@ class Generator:
         case_id: int,
         rep: int,
     ) -> np.ndarray:
-        value = self.library.bb_case_restrictions_rnd(
+        return self.table_restrictions(bitness, case_id, rep)
+
+    def table_restrictions(
+        self,
+        bitness: int,
+        case_id: int,
+        rep: int,
+    ) -> np.ndarray:
+        value = self.library.bb_table_restrictions(
             bitness,
             case_id,
             rep,

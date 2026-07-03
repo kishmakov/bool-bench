@@ -37,16 +37,13 @@ size_t bb_tree_cases_number(uint16_t bitness);
 // f(input) [1 bit] + f(input with flipped i-th bit) [1 bit] x bitness
 const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input);
 
-
 // Number of nodes or depth for given case
-size_t bb_gen_nodes(uint16_t bitness, size_t case_id);
-size_t bb_gen_depth(uint16_t bitness, size_t case_id);
+size_t bb_tree_nodes(uint16_t bitness, size_t case_id);
+size_t bb_tree_depth(uint16_t bitness, size_t case_id);
 
 
-
-// Computes all restriction sample points for one rep as ASCII 0/1 bytes
-const char* bb_case_restrictions(uint16_t bitness, size_t case_id, size_t rep);
-const char* bb_case_restrictions_rnd(uint16_t bitness, size_t case_id, size_t rep);
+// Computes all tree restriction sample points for one rep as ASCII 0/1 bytes
+const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, size_t rep);
 
 /********************************* 2nd type ***********************************/
 
@@ -58,6 +55,9 @@ uint16_t bb_table_solvable_bitness();
 // Same output format as bb_tree_value. Higher-bit sparse truth-table values are
 // assigned lazily at random and cached for consistent subsequent queries.
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
+
+// Computes all table restriction sample points for one rep as ASCII 0/1 bytes
+const char* bb_table_restrictions(uint16_t bitness, size_t case_id, size_t rep);
 
 // Number of nodes or depth for given case
 size_t bb_table_nodes(uint16_t bitness, size_t case_id);

@@ -154,11 +154,11 @@ def load_library():
     library.bb_table_solvable_bitness.argtypes = []
     library.bb_table_solvable_bitness.restype = ctypes.c_uint16
 
-    library.bb_gen_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_gen_nodes.restype = ctypes.c_size_t
+    library.bb_tree_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_tree_nodes.restype = ctypes.c_size_t
 
-    library.bb_gen_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_gen_depth.restype = ctypes.c_size_t
+    library.bb_tree_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
+    library.bb_tree_depth.restype = ctypes.c_size_t
 
     library.bb_tree_value.argtypes = [
         ctypes.c_uint16,
@@ -180,12 +180,19 @@ def load_library():
     library.bb_table_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
     library.bb_table_depth.restype = ctypes.c_size_t
 
-    library.bb_case_restrictions.argtypes = [
+    library.bb_tree_restrictions.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
         ctypes.c_size_t,
     ]
-    library.bb_case_restrictions.restype = ctypes.c_char_p
+    library.bb_tree_restrictions.restype = ctypes.c_char_p
+
+    library.bb_table_restrictions.argtypes = [
+        ctypes.c_uint16,
+        ctypes.c_size_t,
+        ctypes.c_size_t,
+    ]
+    library.bb_table_restrictions.restype = ctypes.c_char_p
 
     library.bb_circuit_sets.argtypes = []
     library.bb_circuit_sets.restype = ctypes.c_char_p
@@ -265,11 +272,18 @@ def table_value(library, bitness, case_id, input_bits):
     ).decode("ascii")
 
 
-def assert_tree_case_restrictions_consistent(library, bitness, case_id):
+def assert_case_restrictions_consistent(
+    library,
+    restrictions_func,
+    value_func,
+    restrictions_name,
+    bitness,
+    case_id,
+):
     free_bits = bitness - 1
     sample_size = 2 * free_bits + 1
 
-    value = library.bb_case_restrictions(
+    value = restrictions_func(
         bitness,
         case_id,
         0,
@@ -289,7 +303,7 @@ def assert_tree_case_restrictions_consistent(library, bitness, case_id):
                 full_input[full_bit_id] = bit_value
             full_input = "".join(full_input)
 
-            direct_value = tree_value(library, bitness, case_id, full_input)
+            direct_value = value_func(library, bitness, case_id, full_input)
             expected = (
                 value_chunk[:free_bits]
                 + direct_value[bitness]
@@ -301,7 +315,7 @@ def assert_tree_case_restrictions_consistent(library, bitness, case_id):
             )
 
             assert value_chunk == expected, (
-                f"bb_case_restrictions({bitness}, {case_id}) mismatch: "
+                f"{restrictions_name}({bitness}, {case_id}) mismatch: "
                 f"fixed_bit_id={fixed_bit_id}, "
                 f"fixed_bit_value={fixed_bit_value}, "
                 f"actual={value_chunk}, expected={expected}"
@@ -363,18 +377,25 @@ def test_tree_cases(library):
             f"actual={value}, expected={expected_value}"
         )
 
-        depth = library.bb_gen_depth(bitness, case_id)
+        depth = library.bb_tree_depth(bitness, case_id)
         assert depth == expected_depth, (
-            f"bb_gen_depth({bitness}, {case_id}): "
+            f"bb_tree_depth({bitness}, {case_id}): "
             f"actual={depth}, expected={expected_depth}"
         )
-        nodes = library.bb_gen_nodes(bitness, case_id)
+        nodes = library.bb_tree_nodes(bitness, case_id)
         assert nodes == expected_nodes, (
-            f"bb_gen_nodes({bitness}, {case_id}): "
+            f"bb_tree_nodes({bitness}, {case_id}): "
             f"actual={nodes}, expected={expected_nodes}"
         )
 
-        assert_tree_case_restrictions_consistent(library, bitness, case_id)
+        assert_case_restrictions_consistent(
+            library,
+            library.bb_tree_restrictions,
+            tree_value,
+            "bb_tree_restrictions",
+            bitness,
+            case_id,
+        )
 
         flipped = list(input_bits)
         flipped[0] = "1" if flipped[0] == "0" else "0"
@@ -428,6 +449,15 @@ def test_table_solvable_cases(library):
             f"bb_table_nodes({bitness}, {case_id}): "
             f"actual={nodes}, expected={expected_nodes}"
         )
+        if (bitness, case_id) == TABLE_BIG_CASES[0][:2]:
+            assert_case_restrictions_consistent(
+                library,
+                library.bb_table_restrictions,
+                table_value,
+                "bb_table_restrictions",
+                bitness,
+                case_id,
+            )
 
 
 def test_table_big_cases(library):
@@ -446,6 +476,14 @@ def test_table_big_cases(library):
         assert value == expected_value, (
             f"bb_table_value({bitness}, {case_id}, {input_bits}): "
             f"actual={value}, expected={expected_value}"
+        )
+        assert_case_restrictions_consistent(
+            library,
+            library.bb_table_restrictions,
+            table_value,
+            "bb_table_restrictions",
+            bitness,
+            case_id,
         )
 
 
