@@ -42,20 +42,47 @@ TABLE_SOLVABLE_CASES = [
 ]
 
 TABLE_BIG_CASES = [
-    (17, 42, "01010101010101010"),
-    (24, 188, "110010100111000101010011"),
-    (32, 320, "01010101010101010101010101010101"),
-    (48, 480, "110010101100101011001010110010101100101011001010"),
-    (64, 640, "0011010100110101001101010011010100110101001101010011010100110101"),
+    (
+        17,
+        42,
+        "01010101010101010",
+        "01010101010101010111000000111000110",
+    ),
+    (
+        24,
+        188,
+        "110010100111000101010011",
+        "1100101001110001010100111010111010101001011101101",
+    ),
+    (
+        32,
+        320,
+        "01010101010101010101010101010101",
+        "01010101010101010101010101010101011000000101101101000111000101001",
+    ),
+    (
+        48,
+        480,
+        "110010101100101011001010110010101100101011001010",
+        "1100101011001010110010101100101011001010110010100001011011000001001010110100000110011111101011011",
+    ),
+    (
+        64,
+        640,
+        "0011010100110101001101010011010100110101001101010011010100110101",
+        "001101010011010100110101001101010011010100110101001101010011010101110100101111001010111011010001111101000011000011001000011110110",
+    ),
     (
         100,
         1000,
         "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
+        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001101101100011010001101100111110110110000101011001010010010000100100011010100100110010101010011110011001",
     ),
     (
         128,
         1280,
         "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110001100110000111111001001101111110101010111011001001011111100100001011001001101001001011011011110111000110101111011101010101101100",
     ),
 ]
 
@@ -281,104 +308,72 @@ def assert_tree_case_restrictions_consistent(library, bitness, case_id):
             )
 
 
-def assert_tree_case_consistent(
-    library,
-    bitness,
-    case_id,
-    input_bits,
-    expected_value,
-    expected_depth,
-    expected_nodes,
-):
-    value = tree_value(library, bitness, case_id, input_bits)
+def assert_case_consistent(library, value_func, value_name, bitness, case_id, input_bits):
+    value = value_func(library, bitness, case_id, input_bits)
     assert len(value) == 2 * bitness + 1, (
-        f"bb_tree_value({bitness}, {case_id}, {input_bits}) length: "
+        f"{value_name}({bitness}, {case_id}, {input_bits}) length: "
         f"actual={len(value)}, expected={2 * bitness + 1}, value={value}"
     )
     assert value[:bitness] == input_bits, (
-        f"bb_tree_value({bitness}, {case_id}, {input_bits}) input prefix: "
+        f"{value_name}({bitness}, {case_id}, {input_bits}) input prefix: "
         f"actual={value[:bitness]}, expected={input_bits}, value={value}"
     )
-    assert value == expected_value, (
-        f"bb_tree_value({bitness}, {case_id}, {input_bits}): "
-        f"actual={value}, expected={expected_value}"
-    )
 
-    repeat_value = tree_value(library, bitness, case_id, input_bits)
+    repeat_value = value_func(library, bitness, case_id, input_bits)
     assert value == repeat_value, (
-        f"bb_tree_value({bitness}, {case_id}, {input_bits}) is not stable: "
+        f"{value_name}({bitness}, {case_id}, {input_bits}) is not stable: "
         f"first={value}, second={repeat_value}"
-    )
-
-    depth = library.bb_gen_depth(bitness, case_id)
-    assert depth == expected_depth, (
-        f"bb_gen_depth({bitness}, {case_id}): "
-        f"actual={depth}, expected={expected_depth}"
-    )
-    nodes = library.bb_gen_nodes(bitness, case_id)
-    assert nodes == expected_nodes, (
-        f"bb_gen_nodes({bitness}, {case_id}): "
-        f"actual={nodes}, expected={expected_nodes}"
     )
 
     for bit_id in range(bitness):
         flipped = list(input_bits)
         flipped[bit_id] = "1" if flipped[bit_id] == "0" else "0"
-        flipped_value = tree_value(library, bitness, case_id, "".join(flipped))
+        flipped_value = value_func(library, bitness, case_id, "".join(flipped))
         assert value[bitness + 1 + bit_id] == flipped_value[bitness], (
-            f"bb_tree_value({bitness}, {case_id}, {input_bits}) "
+            f"{value_name}({bitness}, {case_id}, {input_bits}) "
             f"flip bit {bit_id}: sampled={value[bitness + 1 + bit_id]}, "
             f"direct={flipped_value[bitness]}, flipped_input={''.join(flipped)}"
         )
 
-
-def assert_table_solvable_case_consistent(
-    library,
-    bitness,
-    case_id,
-    input_bits,
-    expected_value,
-    expected_depth,
-    expected_nodes,
-):
-    value = table_value(library, bitness, case_id, input_bits)
-    assert len(value) == 2 * bitness + 1, (
-        f"bb_table_value({bitness}, {case_id}, {input_bits}) length: "
-        f"actual={len(value)}, expected={2 * bitness + 1}, value={value}"
-    )
-    assert value[:bitness] == input_bits, (
-        f"bb_table_value({bitness}, {case_id}, {input_bits}) input prefix: "
-        f"actual={value[:bitness]}, expected={input_bits}, value={value}"
-    )
-    assert value == expected_value, (
-        f"bb_table_value({bitness}, {case_id}, {input_bits}): "
-        f"actual={value}, expected={expected_value}"
-    )
-
-    repeat_value = table_value(library, bitness, case_id, input_bits)
-    assert value == repeat_value, (
-        f"bb_table_value({bitness}, {case_id}, {input_bits}) is not stable: "
-        f"first={value}, second={repeat_value}"
-    )
-
-    depth = library.bb_table_depth(bitness, case_id)
-    assert depth == expected_depth, (
-        f"bb_table_depth({bitness}, {case_id}): "
-        f"actual={depth}, expected={expected_depth}"
-    )
-    nodes = library.bb_table_nodes(bitness, case_id)
-    assert nodes == expected_nodes, (
-        f"bb_table_nodes({bitness}, {case_id}): "
-        f"actual={nodes}, expected={expected_nodes}"
-    )
+    return value
 
 
 def test_tree_cases(library):
     print(f"Check tree cases ...")
 
     for case in TREE_CASES:
-        bitness, case_id, input_bits, _, _, _ = case
-        assert_tree_case_consistent(library, *case)
+        (
+            bitness,
+            case_id,
+            input_bits,
+            expected_value,
+            expected_depth,
+            expected_nodes,
+        ) = case
+        value = assert_case_consistent(
+            library,
+            tree_value,
+            "bb_tree_value",
+            bitness,
+            case_id,
+            input_bits,
+        )
+        assert value == expected_value, (
+            f"bb_tree_value({bitness}, {case_id}, {input_bits}): "
+            f"actual={value}, expected={expected_value}"
+        )
+
+        depth = library.bb_gen_depth(bitness, case_id)
+        assert depth == expected_depth, (
+            f"bb_gen_depth({bitness}, {case_id}): "
+            f"actual={depth}, expected={expected_depth}"
+        )
+        nodes = library.bb_gen_nodes(bitness, case_id)
+        assert nodes == expected_nodes, (
+            f"bb_gen_nodes({bitness}, {case_id}): "
+            f"actual={nodes}, expected={expected_nodes}"
+        )
+
         assert_tree_case_restrictions_consistent(library, bitness, case_id)
 
         flipped = list(input_bits)
@@ -402,33 +397,56 @@ def test_tree_cases(library):
 def test_table_solvable_cases(library):
     print(f"Check solvable table cases ...")
 
-    for case in TABLE_SOLVABLE_CASES:
-        assert_table_solvable_case_consistent(library, *case)
+    for (
+        bitness,
+        case_id,
+        input_bits,
+        expected_value,
+        expected_depth,
+        expected_nodes,
+    ) in TABLE_SOLVABLE_CASES:
+        value = assert_case_consistent(
+            library,
+            table_value,
+            "bb_table_value",
+            bitness,
+            case_id,
+            input_bits,
+        )
+        assert value == expected_value, (
+            f"bb_table_value({bitness}, {case_id}, {input_bits}): "
+            f"actual={value}, expected={expected_value}"
+        )
+
+        depth = library.bb_table_depth(bitness, case_id)
+        assert depth == expected_depth, (
+            f"bb_table_depth({bitness}, {case_id}): "
+            f"actual={depth}, expected={expected_depth}"
+        )
+        nodes = library.bb_table_nodes(bitness, case_id)
+        assert nodes == expected_nodes, (
+            f"bb_table_nodes({bitness}, {case_id}): "
+            f"actual={nodes}, expected={expected_nodes}"
+        )
 
 
 def test_table_big_cases(library):
     print(f"Check big table cases ...")
 
-    for bitness, case_id, input_bits in TABLE_BIG_CASES:
+    for bitness, case_id, input_bits, expected_value in TABLE_BIG_CASES:
         assert bitness > library.bb_table_solvable_bitness(), bitness
-        value = table_value(library, bitness, case_id, input_bits)
-        assert len(value) == 2 * bitness + 1
-        assert value[:bitness] == input_bits
-        repeat_value = table_value(library, bitness, case_id, input_bits)
-        assert value == repeat_value, (
-            f"bb_table_value({bitness}, {case_id}, {input_bits}) is not stable: "
-            f"first={value}, second={repeat_value}"
+        value = assert_case_consistent(
+            library,
+            table_value,
+            "bb_table_value",
+            bitness,
+            case_id,
+            input_bits,
         )
-
-        for bit_id in range(bitness):
-            flipped = list(input_bits)
-            flipped[bit_id] = "1" if flipped[bit_id] == "0" else "0"
-            flipped_value = table_value(library, bitness, case_id, "".join(flipped))
-            assert value[bitness + 1 + bit_id] == flipped_value[bitness], (
-                f"bb_table_value({bitness}, {case_id}, {input_bits}) "
-                f"flip bit {bit_id}: sampled={value[bitness + 1 + bit_id]}, "
-                f"direct={flipped_value[bitness]}, flipped_input={''.join(flipped)}"
-            )
+        assert value == expected_value, (
+            f"bb_table_value({bitness}, {case_id}, {input_bits}): "
+            f"actual={value}, expected={expected_value}"
+        )
 
 
 def test_circuit_discovery(library):
