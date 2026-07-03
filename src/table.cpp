@@ -184,8 +184,7 @@ size_t bb_table_nodes(uint16_t bitness, size_t case_id) {
 size_t bb_table_depth(uint16_t bitness, size_t case_id) {
     assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
     const std::vector<bool> table = SolvableTableVector(bitness, case_id);
-    const DecisionTree tree = BuildDepthOptimalDecisionTree(bitness, table);
-    return tree.depth;
+    return SolveForDepth(bitness, table);
 }
 
 TableValueFunction MakeTableValueFunction(uint16_t bitness, size_t case_id) {
