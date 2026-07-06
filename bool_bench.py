@@ -32,10 +32,6 @@ def _find_library() -> Path:
 
 LIBRARY = _find_library()
 
-_WORKER_GENERATOR = None
-_FLEET = None
-_FLEET_KEY = None
-
 
 def sample_point_dim(bitness: int) -> int:
     return 2 * bitness + 1
@@ -141,37 +137,27 @@ class Generator:
     def tree_depth(self, bitness: int, case_id: int) -> int:
         return int(self.library.bb_tree_depth(bitness, case_id))
 
+    # Result shape: 2 * bitness + 1.
     def tree_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
-        value = self.library.bb_tree_value(
-            bitness,
-            case_id,
-            input_bits.encode("ascii"),
-        )
-        return _ascii_bits_to_signed(value, sample_point_dim(bitness))
+        return self._value(self.library.bb_tree_value, bitness, case_id, input_bits)
 
+    # Result shape: len(input_bits) x (2 * bitness + 1).
     def tree_values(
         self,
         bitness: int,
         case_id: int,
         input_bits: Sequence[str],
     ) -> np.ndarray:
-        samples = np.empty(
-            (len(input_bits), sample_point_dim(bitness)),
-            dtype=np.float32,
-        )
-        for row_id, bits in enumerate(input_bits):
-            samples[row_id] = self.tree_value(bitness, case_id, bits)
-        return samples
+        return self._values(self.library.bb_tree_value, bitness, case_id, input_bits)
 
+    # Result shape: (bitness * 2) x (2 * bitness - 1).
     def tree_restrictions(self, bitness: int, case_id: int, rep: int) -> np.ndarray:
-        value = self.library.bb_tree_restrictions(
+        return self._restrictions(
+            self.library.bb_tree_restrictions,
             bitness,
             case_id,
             rep,
         )
-        point_dim = restriction_point_dim(bitness)
-        signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
-        return signed.reshape(bitness * 2, point_dim)
 
     def table_cases_number(self, bitness: int) -> int:
         return int(self.library.bb_table_cases_number(bitness))
@@ -185,16 +171,46 @@ class Generator:
     def table_depth(self, bitness: int, case_id: int) -> int:
         return int(self.library.bb_table_depth(bitness, case_id))
 
+    # Result shape: 2 * bitness + 1.
     def table_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
-        value = self.library.bb_table_value(
-            bitness,
-            case_id,
-            input_bits.encode("ascii"),
-        )
-        return _ascii_bits_to_signed(value, sample_point_dim(bitness))
+        return self._value(self.library.bb_table_value, bitness, case_id, input_bits)
 
+    # Result shape: len(input_bits) x (2 * bitness + 1).
     def table_values(
         self,
+        bitness: int,
+        case_id: int,
+        input_bits: Sequence[str],
+    ) -> np.ndarray:
+        return self._values(self.library.bb_table_value, bitness, case_id, input_bits)
+
+    # Result shape: (bitness * 2) x (2 * bitness - 1).
+    def table_restrictions(
+        self,
+        bitness: int,
+        case_id: int,
+        rep: int,
+    ) -> np.ndarray:
+        return self._restrictions(
+            self.library.bb_table_restrictions,
+            bitness,
+            case_id,
+            rep,
+        )
+
+    def _value(
+        self,
+        value_fn: Callable[[int, int, bytes], bytes],
+        bitness: int,
+        case_id: int,
+        input_bits: str,
+    ) -> np.ndarray:
+        value = value_fn(bitness, case_id, input_bits.encode("ascii"))
+        return _ascii_bits_to_signed(value, sample_point_dim(bitness))
+
+    def _values(
+        self,
+        value_fn: Callable[[int, int, bytes], bytes],
         bitness: int,
         case_id: int,
         input_bits: Sequence[str],
@@ -204,20 +220,17 @@ class Generator:
             dtype=np.float32,
         )
         for row_id, bits in enumerate(input_bits):
-            samples[row_id] = self.table_value(bitness, case_id, bits)
+            samples[row_id] = self._value(value_fn, bitness, case_id, bits)
         return samples
 
-    def table_restrictions(
+    def _restrictions(
         self,
+        restrictions_fn: Callable[[int, int, int], bytes],
         bitness: int,
         case_id: int,
         rep: int,
     ) -> np.ndarray:
-        value = self.library.bb_table_restrictions(
-            bitness,
-            case_id,
-            rep,
-        )
+        value = restrictions_fn(bitness, case_id, rep)
         point_dim = restriction_point_dim(bitness)
         signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
         return signed.reshape(bitness * 2, point_dim)
@@ -268,7 +281,3 @@ def _ascii_bits_to_signed(value: bytes, expected_len: int) -> np.ndarray:
 def _split_newlines(value: bytes) -> list[str]:
     text = value.decode("ascii")
     return [] if not text else text.split("\n")
-
-
-
-

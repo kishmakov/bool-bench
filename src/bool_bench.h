@@ -52,8 +52,8 @@ size_t bb_table_cases_number(uint16_t bitness);
 // Maximum bitness for which table is representable as decision tree.
 uint16_t bb_table_solvable_bitness();
 
-// Same output format as bb_tree_value. Higher-bit sparse truth-table values are
-// assigned lazily at random and cached for consistent subsequent queries.
+// Same output format as bb_tree_value: 2 * bitness + 1 for input and values of
+// function on input with some bit flipped.
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
 
 // Computes all table restriction sample points for one rep as ASCII 0/1 bytes
