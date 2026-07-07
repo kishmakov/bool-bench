@@ -29,6 +29,9 @@ extern "C" {
 
 /********************************* 1st type ***********************************/
 
+// Minimum bitness for which trees are constructed.
+uint16_t bb_min_tree_bitness();
+
 size_t bb_tree_cases_number(uint16_t bitness);
 
 // Computes value of the function at input and all variations of input with one
@@ -41,16 +44,15 @@ const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input);
 size_t bb_tree_nodes(uint16_t bitness, size_t case_id);
 size_t bb_tree_depth(uint16_t bitness, size_t case_id);
 
-
 // Computes all tree restriction sample points for one rep as ASCII 0/1 bytes
 const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, size_t rep);
 
 /********************************* 2nd type ***********************************/
 
-size_t bb_table_cases_number(uint16_t bitness);
-
 // Maximum bitness for which table is representable as decision tree.
 uint16_t bb_table_solvable_bitness();
+
+size_t bb_table_cases_number(uint16_t bitness);
 
 // Same output format as bb_tree_value: 2 * bitness + 1 for input and values of
 // function on input with some bit flipped.

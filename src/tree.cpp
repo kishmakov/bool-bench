@@ -54,6 +54,10 @@ bool EvaluateTreeCase(
 
 }  // namespace
 
+uint16_t bb_min_tree_bitness() {
+    return kMinTreeBitness;
+}
+
 size_t bb_tree_cases_number(uint16_t bitness) {
     assert(bitness >= kMinTreeBitness && bitness <= kMaxTreeBitness);
     return kTreeCasesNumber;

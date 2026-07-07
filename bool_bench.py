@@ -68,6 +68,9 @@ class Generator:
         library.bb_table_solvable_bitness.argtypes = []
         library.bb_table_solvable_bitness.restype = ctypes.c_uint16
 
+        library.bb_min_tree_bitness.argtypes = []
+        library.bb_min_tree_bitness.restype = ctypes.c_uint16
+
         library.bb_tree_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
         library.bb_tree_nodes.restype = ctypes.c_size_t
 
@@ -130,6 +133,9 @@ class Generator:
 
     def tree_cases_number(self, bitness: int) -> int:
         return int(self.library.bb_tree_cases_number(bitness))
+
+    def min_tree_bitness(self) -> int:
+        return int(self.library.bb_min_tree_bitness())
 
     def tree_nodes(self, bitness: int, case_id: int) -> int:
         return int(self.library.bb_tree_nodes(bitness, case_id))
