@@ -183,14 +183,14 @@ def load_library():
     library.bb_tree_restrictions.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
-        ctypes.c_size_t,
+        ctypes.c_char_p,
     ]
     library.bb_tree_restrictions.restype = ctypes.c_char_p
 
     library.bb_table_restrictions.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
-        ctypes.c_size_t,
+        ctypes.c_char_p,
     ]
     library.bb_table_restrictions.restype = ctypes.c_char_p
 
@@ -282,44 +282,63 @@ def assert_case_restrictions_consistent(
 ):
     free_bits = bitness - 1
     sample_size = 2 * free_bits + 1
+    reps = 3
+    packed_input = "".join(
+        "1" if (restriction_id + rep + coord) % 2 else "0"
+        for restriction_id in range(bitness * 2)
+        for rep in range(reps)
+        for coord in range(free_bits)
+    )
 
     value = restrictions_func(
         bitness,
         case_id,
-        0,
+        packed_input.encode("ascii"),
     ).decode("ascii")
-    assert len(value) == bitness * 2 * sample_size
+    assert len(value) == bitness * 2 * reps * sample_size
 
     for fixed_bit_id in range(bitness):
         for fixed_bit_value in range(2):
             restriction_id = fixed_bit_id * 2 + fixed_bit_value
-            offset = restriction_id * sample_size
-            value_chunk = value[offset : offset + sample_size]
 
-            full_input = list("0" * bitness)
-            full_input[fixed_bit_id] = str(fixed_bit_value)
-            for coord, bit_value in enumerate(value_chunk[:free_bits]):
-                full_bit_id = coord if coord < fixed_bit_id else coord + 1
-                full_input[full_bit_id] = bit_value
-            full_input = "".join(full_input)
-
-            direct_value = value_func(library, bitness, case_id, full_input)
-            expected = (
-                value_chunk[:free_bits]
-                + direct_value[bitness]
-                + "".join(
-                    direct_value[bitness + 1 + full_bit_id]
-                    for full_bit_id in range(bitness)
-                    if full_bit_id != fixed_bit_id
+            for rep in range(reps):
+                offset = (restriction_id * reps + rep) * sample_size
+                value_chunk = value[offset : offset + sample_size]
+                input_offset = (restriction_id * reps + rep) * free_bits
+                free_input = packed_input[input_offset : input_offset + free_bits]
+                assert value_chunk[:free_bits] == free_input, (
+                    f"{restrictions_name}({bitness}, {case_id}) input mismatch: "
+                    f"fixed_bit_id={fixed_bit_id}, "
+                    f"fixed_bit_value={fixed_bit_value}, "
+                    f"rep={rep}, "
+                    f"actual={value_chunk[:free_bits]}, expected={free_input}"
                 )
-            )
 
-            assert value_chunk == expected, (
-                f"{restrictions_name}({bitness}, {case_id}) mismatch: "
-                f"fixed_bit_id={fixed_bit_id}, "
-                f"fixed_bit_value={fixed_bit_value}, "
-                f"actual={value_chunk}, expected={expected}"
-            )
+                full_input = list("0" * bitness)
+                full_input[fixed_bit_id] = str(fixed_bit_value)
+                for coord, bit_value in enumerate(free_input):
+                    full_bit_id = coord if coord < fixed_bit_id else coord + 1
+                    full_input[full_bit_id] = bit_value
+                full_input = "".join(full_input)
+
+                direct_value = value_func(library, bitness, case_id, full_input)
+                expected = (
+                    value_chunk[:free_bits]
+                    + direct_value[bitness]
+                    + "".join(
+                        direct_value[bitness + 1 + full_bit_id]
+                        for full_bit_id in range(bitness)
+                        if full_bit_id != fixed_bit_id
+                    )
+                )
+
+                assert value_chunk == expected, (
+                    f"{restrictions_name}({bitness}, {case_id}) mismatch: "
+                    f"fixed_bit_id={fixed_bit_id}, "
+                    f"fixed_bit_value={fixed_bit_value}, "
+                    f"rep={rep}, "
+                    f"actual={value_chunk}, expected={expected}"
+                )
 
 
 def assert_case_consistent(library, value_func, value_name, bitness, case_id, input_bits):

@@ -11,6 +11,10 @@
 bool RandomBool(std::mt19937& rng);
 std::mt19937 PrepRNG(uint16_t bitness, size_t case_id);
 size_t FullBitId(size_t bit_id, size_t fixed_id);
+const char* FillRestrictions(
+    uint16_t bitness,
+    const char* input,
+    const std::function<bool(std::string_view)>& evaluate);
 
 class FlippingSampler {
 public:

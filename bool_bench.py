@@ -100,12 +100,14 @@ class Generator:
         library.bb_tree_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
+            ctypes.c_char_p,
         ]
         library.bb_tree_restrictions.restype = ctypes.c_char_p
 
         library.bb_table_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
+            ctypes.c_char_p,
         ]
         library.bb_table_restrictions.restype = ctypes.c_char_p
 
@@ -155,11 +157,17 @@ class Generator:
         return self._values(self.library.bb_tree_value, bitness, case_id, input_bits)
 
     # Result shape: (bitness * 2) x (2 * bitness - 1).
-    def tree_restrictions(self, bitness: int, case_id: int) -> np.ndarray:
+    def tree_restrictions(
+        self,
+        bitness: int,
+        case_id: int,
+        input_bits: str,
+    ) -> np.ndarray:
         return self._restrictions(
             self.library.bb_tree_restrictions,
             bitness,
             case_id,
+            input_bits,
         )
 
     def table_cases_number(self, bitness: int) -> int:
@@ -192,11 +200,13 @@ class Generator:
         self,
         bitness: int,
         case_id: int,
+        input_bits: str,
     ) -> np.ndarray:
         return self._restrictions(
             self.library.bb_table_restrictions,
             bitness,
             case_id,
+            input_bits,
         )
 
     def _value(
@@ -226,14 +236,19 @@ class Generator:
 
     def _restrictions(
         self,
-        restrictions_fn: Callable[[int, int], bytes],
+        restrictions_fn: Callable[[int, int, bytes], bytes],
         bitness: int,
         case_id: int,
+        input_bits: str,
     ) -> np.ndarray:
-        value = restrictions_fn(bitness, case_id)
+        free_bits = bitness - 1
+        restrictions = bitness * 2
+        assert len(input_bits) % (restrictions * free_bits) == 0
+        reps = len(input_bits) // (restrictions * free_bits)
+        value = restrictions_fn(bitness, case_id, input_bits.encode("ascii"))
         point_dim = restriction_point_dim(bitness)
-        signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
-        return signed.reshape(bitness * 2, point_dim)
+        signed = _ascii_bits_to_signed(value, restrictions * reps * point_dim)
+        return signed.reshape(restrictions, reps, point_dim)
 
     def circuit_sets(self) -> list[str]:
         return _split_newlines(self.library.bb_circuit_sets())
