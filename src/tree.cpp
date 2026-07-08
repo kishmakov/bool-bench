@@ -100,9 +100,8 @@ const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input) {
     return value.c_str();
 }
 
-const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, size_t rep) {
+const char* bb_tree_restrictions(uint16_t bitness, size_t case_id) {
     assert(case_id < bb_tree_cases_number(bitness));
-    (void)rep;
 
     thread_local std::string value;
     thread_local std::string sample_input;

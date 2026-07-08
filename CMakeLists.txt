@@ -20,12 +20,10 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/arminbiere/aiger.git
     GIT_TAG rel-1.9.20
 )
-FetchContent_GetProperties(aiger)
-if(NOT aiger_POPULATED)
-    FetchContent_Populate(aiger)
-    add_library(aiger STATIC "${aiger_SOURCE_DIR}/aiger.c")
-    target_include_directories(aiger PUBLIC "${aiger_SOURCE_DIR}")
-endif()
+FetchContent_MakeAvailable(aiger)
+
+add_library(aiger STATIC "${aiger_SOURCE_DIR}/aiger.c")
+target_include_directories(aiger PUBLIC "${aiger_SOURCE_DIR}")
 
 add_library(bb
     src/aig.cpp

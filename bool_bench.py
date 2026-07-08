@@ -100,13 +100,11 @@ class Generator:
         library.bb_tree_restrictions.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
-            ctypes.c_size_t,
         ]
         library.bb_tree_restrictions.restype = ctypes.c_char_p
 
         library.bb_table_restrictions.argtypes = [
             ctypes.c_uint16,
-            ctypes.c_size_t,
             ctypes.c_size_t,
         ]
         library.bb_table_restrictions.restype = ctypes.c_char_p
@@ -157,12 +155,11 @@ class Generator:
         return self._values(self.library.bb_tree_value, bitness, case_id, input_bits)
 
     # Result shape: (bitness * 2) x (2 * bitness - 1).
-    def tree_restrictions(self, bitness: int, case_id: int, rep: int) -> np.ndarray:
+    def tree_restrictions(self, bitness: int, case_id: int) -> np.ndarray:
         return self._restrictions(
             self.library.bb_tree_restrictions,
             bitness,
             case_id,
-            rep,
         )
 
     def table_cases_number(self, bitness: int) -> int:
@@ -195,13 +192,11 @@ class Generator:
         self,
         bitness: int,
         case_id: int,
-        rep: int,
     ) -> np.ndarray:
         return self._restrictions(
             self.library.bb_table_restrictions,
             bitness,
             case_id,
-            rep,
         )
 
     def _value(
@@ -231,12 +226,11 @@ class Generator:
 
     def _restrictions(
         self,
-        restrictions_fn: Callable[[int, int, int], bytes],
+        restrictions_fn: Callable[[int, int], bytes],
         bitness: int,
         case_id: int,
-        rep: int,
     ) -> np.ndarray:
-        value = restrictions_fn(bitness, case_id, rep)
+        value = restrictions_fn(bitness, case_id)
         point_dim = restriction_point_dim(bitness)
         signed = _ascii_bits_to_signed(value, bitness * 2 * point_dim)
         return signed.reshape(bitness * 2, point_dim)

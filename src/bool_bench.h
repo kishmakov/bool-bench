@@ -45,7 +45,7 @@ size_t bb_tree_nodes(uint16_t bitness, size_t case_id);
 size_t bb_tree_depth(uint16_t bitness, size_t case_id);
 
 // Computes all tree restriction sample points for one rep as ASCII 0/1 bytes
-const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, size_t rep);
+const char* bb_tree_restrictions(uint16_t bitness, size_t case_id);
 
 /********************************* 2nd type ***********************************/
 
@@ -59,12 +59,11 @@ size_t bb_table_cases_number(uint16_t bitness);
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
 
 // Computes all table restriction sample points for one rep as ASCII 0/1 bytes
-const char* bb_table_restrictions(uint16_t bitness, size_t case_id, size_t rep);
+const char* bb_table_restrictions(uint16_t bitness, size_t case_id);
 
 // Number of nodes or depth for given case
 size_t bb_table_nodes(uint16_t bitness, size_t case_id);
 size_t bb_table_depth(uint16_t bitness, size_t case_id);
-
 
 /********************************* 3rd type ***********************************/
 
