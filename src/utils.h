@@ -30,6 +30,12 @@ public:
         size_t fixed_bit_id,
         const std::function<bool(std::string_view)>& evaluate);
 
+    void Fill(
+        float* value,
+        size_t sample_offset,
+        size_t fixed_bit_id,
+        const std::function<bool(std::string_view)>& evaluate);
+
 private:
     uint16_t bitness_ = 0;
 };

@@ -58,6 +58,16 @@ class Generator:
 
     def _load_library(self) -> ctypes.CDLL:
         library = ctypes.CDLL(self.library_path)
+        size_t_array = np.ctypeslib.ndpointer(
+            dtype=np.uintp,
+            ndim=1,
+            flags="C_CONTIGUOUS",
+        )
+        float_tensor = np.ctypeslib.ndpointer(
+            dtype=np.float32,
+            ndim=3,
+            flags="C_CONTIGUOUS",
+        )
 
         library.bb_tree_cases_number.argtypes = [ctypes.c_uint16]
         library.bb_tree_cases_number.restype = ctypes.c_size_t
@@ -90,12 +100,32 @@ class Generator:
         ]
         library.bb_tree_value.restype = ctypes.c_char_p
 
+        library.bb_tree_value_tensor.argtypes = [
+            ctypes.c_uint16,
+            size_t_array,
+            ctypes.c_size_t,
+            ctypes.c_char_p,
+            ctypes.c_size_t,
+            float_tensor,
+        ]
+        library.bb_tree_value_tensor.restype = None
+
         library.bb_table_value.argtypes = [
             ctypes.c_uint16,
             ctypes.c_size_t,
             ctypes.c_char_p,
         ]
         library.bb_table_value.restype = ctypes.c_char_p
+
+        library.bb_table_value_tensor.argtypes = [
+            ctypes.c_uint16,
+            size_t_array,
+            ctypes.c_size_t,
+            ctypes.c_char_p,
+            ctypes.c_size_t,
+            float_tensor,
+        ]
+        library.bb_table_value_tensor.restype = None
 
         library.bb_tree_restrictions.argtypes = [
             ctypes.c_uint16,
@@ -156,6 +186,20 @@ class Generator:
     ) -> np.ndarray:
         return self._values(self.library.bb_tree_value, bitness, case_id, input_bits)
 
+    # Result shape: len(case_ids) x reps x (2 * bitness + 1).
+    def tree_value_tensor(
+        self,
+        bitness: int,
+        case_ids: Sequence[int],
+        input_bits: Sequence[Sequence[str]],
+    ) -> np.ndarray:
+        return self._value_tensor(
+            self.library.bb_tree_value_tensor,
+            bitness,
+            case_ids,
+            input_bits,
+        )
+
     # Result shape: (bitness * 2) x (2 * bitness - 1).
     def tree_restrictions(
         self,
@@ -195,6 +239,20 @@ class Generator:
     ) -> np.ndarray:
         return self._values(self.library.bb_table_value, bitness, case_id, input_bits)
 
+    # Result shape: len(case_ids) x reps x (2 * bitness + 1).
+    def table_value_tensor(
+        self,
+        bitness: int,
+        case_ids: Sequence[int],
+        input_bits: Sequence[Sequence[str]],
+    ) -> np.ndarray:
+        return self._value_tensor(
+            self.library.bb_table_value_tensor,
+            bitness,
+            case_ids,
+            input_bits,
+        )
+
     # Result shape: (bitness * 2) x (2 * bitness - 1).
     def table_restrictions(
         self,
@@ -232,6 +290,38 @@ class Generator:
         )
         for row_id, bits in enumerate(input_bits):
             samples[row_id] = self._value(value_fn, bitness, case_id, bits)
+        return samples
+
+    def _value_tensor(
+        self,
+        value_fn,
+        bitness: int,
+        case_ids: Sequence[int],
+        input_bits: Sequence[Sequence[str]],
+    ) -> np.ndarray:
+        case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
+        assert case_ids_array.ndim == 1, case_ids_array.shape
+        assert len(case_ids_array) == len(input_bits), (
+            len(case_ids_array),
+            len(input_bits),
+        )
+        assert input_bits, "empty input"
+        reps = len(input_bits[0])
+        assert all(len(case_input_bits) == reps for case_input_bits in input_bits)
+
+        samples = np.empty(
+            (len(case_ids_array), reps, sample_point_dim(bitness)),
+            dtype=np.float32,
+        )
+        packed_inputs = _pack_input_bits(bitness, input_bits)
+        value_fn(
+            bitness,
+            case_ids_array,
+            len(case_ids_array),
+            packed_inputs,
+            reps,
+            samples,
+        )
         return samples
 
     def _restrictions(
@@ -291,6 +381,15 @@ def _ascii_bits_to_signed(value: bytes, expected_len: int) -> np.ndarray:
     assert len(value) == expected_len
     bits = np.frombuffer(value, dtype=np.uint8).astype(np.int8) - ord("0")
     return bits * 2 - 1
+
+
+def _pack_input_bits(bitness: int, input_bits: Sequence[Sequence[str]]) -> bytes:
+    parts = []
+    for case_input_bits in input_bits:
+        for bits in case_input_bits:
+            assert len(bits) == bitness, (len(bits), bitness)
+            parts.append(bits)
+    return "".join(parts).encode("ascii")
 
 
 def _split_newlines(value: bytes) -> list[str]:

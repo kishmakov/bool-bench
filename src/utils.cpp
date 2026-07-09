@@ -12,6 +12,11 @@ bool RandomBool(std::mt19937& rng) {
     return std::uniform_int_distribution<int>(0, 1)(rng) != 0;
 }
 
+float SignedBit(char bit) {
+    assert(bit == '0' || bit == '1');
+    return bit == '1' ? 1.0f : -1.0f;
+}
+
 std::mt19937 PrepRNG(uint16_t bitness, size_t case_id) {
     std::seed_seq seed{
         static_cast<uint32_t>(bitness),
@@ -94,6 +99,29 @@ void FlippingSampler::Fill(
         bit = bit == '1' ? '0' : '1';
         value[sample_offset + free_bits + 1 + coord] =
             evaluate({input.data(), bitness_}) ? '1' : '0';
+        bit = bit == '1' ? '0' : '1';
+    }
+}
+
+void FlippingSampler::Fill(
+    float* value,
+    size_t sample_offset,
+    size_t fixed_bit_id,
+    const std::function<bool(std::string_view)>& evaluate)
+{
+    assert(value != nullptr);
+    const size_t free_bits = fixed_bit_id < bitness_ ? bitness_ - 1 : bitness_;
+
+    for (size_t coord = 0; coord < free_bits; ++coord) {
+        value[sample_offset + coord] = SignedBit(input[FullBitId(coord, fixed_bit_id)]);
+    }
+    value[sample_offset + free_bits] =
+        evaluate({input.data(), bitness_}) ? 1.0f : -1.0f;
+    for (size_t coord = 0; coord < free_bits; ++coord) {
+        char& bit = input[FullBitId(coord, fixed_bit_id)];
+        bit = bit == '1' ? '0' : '1';
+        value[sample_offset + free_bits + 1 + coord] =
+            evaluate({input.data(), bitness_}) ? 1.0f : -1.0f;
         bit = bit == '1' ? '0' : '1';
     }
 }

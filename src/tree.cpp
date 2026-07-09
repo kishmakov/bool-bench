@@ -100,6 +100,42 @@ const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input) {
     return value.c_str();
 }
 
+void bb_tree_value_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    const char* packed_inputs,
+    size_t reps,
+    float* out)
+{
+    assert(case_ids != nullptr);
+    assert(packed_inputs != nullptr);
+    assert(out != nullptr);
+
+    const size_t sample_size = 2 * bitness + 1;
+    thread_local FlippingSampler sampler;
+
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const size_t case_id = case_ids[case_index];
+        assert(case_id < bb_tree_cases_number(bitness));
+
+        const auto evaluate = [bitness, case_id](std::string_view point) {
+            return EvaluateTreeCase(bitness, case_id, point);
+        };
+
+        for (size_t rep = 0; rep < reps; ++rep) {
+            const size_t input_offset = (case_index * reps + rep) * bitness;
+            const size_t output_offset = (case_index * reps + rep) * sample_size;
+            sampler.Reset(bitness, {packed_inputs + input_offset, bitness});
+            sampler.Fill(
+                out,
+                output_offset,
+                bitness,
+                evaluate);
+        }
+    }
+}
+
 const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, const char* input) {
     assert(case_id < bb_tree_cases_number(bitness));
 

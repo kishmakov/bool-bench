@@ -242,6 +242,41 @@ const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) 
     return value.c_str();
 }
 
+void bb_table_value_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    const char* packed_inputs,
+    size_t reps,
+    float* out)
+{
+    assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
+    assert(case_ids != nullptr);
+    assert(packed_inputs != nullptr);
+    assert(out != nullptr);
+
+    const size_t sample_size = 2 * bitness + 1;
+    thread_local FlippingSampler sampler;
+
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const size_t case_id = case_ids[case_index];
+        assert(case_id < bb_table_cases_number(bitness));
+
+        const TableValueFunction evaluate = MakeTableValueFunction(bitness, case_id);
+
+        for (size_t rep = 0; rep < reps; ++rep) {
+            const size_t input_offset = (case_index * reps + rep) * bitness;
+            const size_t output_offset = (case_index * reps + rep) * sample_size;
+            sampler.Reset(bitness, {packed_inputs + input_offset, bitness});
+            sampler.Fill(
+                out,
+                output_offset,
+                bitness,
+                evaluate);
+        }
+    }
+}
+
 const char* bb_table_restrictions(uint16_t bitness, size_t case_id, const char* input) {
     assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
     assert(case_id < bb_table_cases_number(bitness));

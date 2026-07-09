@@ -167,12 +167,32 @@ def load_library():
     ]
     library.bb_tree_value.restype = ctypes.c_char_p
 
+    library.bb_tree_value_tensor.argtypes = [
+        ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_size_t,
+        ctypes.c_char_p,
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_float),
+    ]
+    library.bb_tree_value_tensor.restype = None
+
     library.bb_table_value.argtypes = [
         ctypes.c_uint16,
         ctypes.c_size_t,
         ctypes.c_char_p,
     ]
     library.bb_table_value.restype = ctypes.c_char_p
+
+    library.bb_table_value_tensor.argtypes = [
+        ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_size_t,
+        ctypes.c_char_p,
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_float),
+    ]
+    library.bb_table_value_tensor.restype = None
 
     library.bb_table_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
     library.bb_table_nodes.restype = ctypes.c_size_t
@@ -270,6 +290,56 @@ def table_value(library, bitness, case_id, input_bits):
         case_id,
         input_bits.encode("ascii"),
     ).decode("ascii")
+
+
+def bit_to_signed_float(bit):
+    assert bit == "0" or bit == "1", bit
+    return 1.0 if bit == "1" else -1.0
+
+
+def assert_value_tensor_consistent(
+    library,
+    tensor_func,
+    value_func,
+    tensor_name,
+    bitness,
+    case_ids,
+    input_bits,
+):
+    assert len(case_ids) == len(input_bits), (len(case_ids), len(input_bits))
+    reps = len(input_bits[0])
+    assert all(len(case_input_bits) == reps for case_input_bits in input_bits)
+
+    case_array = (ctypes.c_size_t * len(case_ids))(*case_ids)
+    packed_input = "".join(
+        bits
+        for case_input_bits in input_bits
+        for bits in case_input_bits
+    )
+    assert len(packed_input) == len(case_ids) * reps * bitness
+
+    sample_size = 2 * bitness + 1
+    output = (ctypes.c_float * (len(case_ids) * reps * sample_size))()
+    tensor_func(
+        bitness,
+        case_array,
+        len(case_ids),
+        packed_input.encode("ascii"),
+        reps,
+        output,
+    )
+
+    for case_index, case_id in enumerate(case_ids):
+        for rep, bits in enumerate(input_bits[case_index]):
+            value = value_func(library, bitness, case_id, bits)
+            expected = [bit_to_signed_float(bit) for bit in value]
+            offset = (case_index * reps + rep) * sample_size
+            actual = list(output[offset : offset + sample_size])
+            assert actual == expected, (
+                f"{tensor_name}({bitness}) mismatch: "
+                f"case_index={case_index}, case_id={case_id}, rep={rep}, "
+                f"input={bits}, actual={actual}, expected={expected}"
+            )
 
 
 def assert_case_restrictions_consistent(
@@ -506,6 +576,65 @@ def test_table_big_cases(library):
         )
 
 
+def test_value_tensors(library):
+    print(f"Check value tensor APIs ...")
+
+    assert_value_tensor_consistent(
+        library,
+        library.bb_tree_value_tensor,
+        tree_value,
+        "bb_tree_value_tensor",
+        17,
+        [42],
+        [["01010101010101010", "10101010101010101", "00000000000000000"]],
+    )
+    assert_value_tensor_consistent(
+        library,
+        library.bb_tree_value_tensor,
+        tree_value,
+        "bb_tree_value_tensor",
+        24,
+        [188, 189],
+        [
+            ["110010100111000101010011", "001101011000111010101100"],
+            ["000000000000000000000000", "111111111111111111111111"],
+        ],
+    )
+    assert_value_tensor_consistent(
+        library,
+        library.bb_table_value_tensor,
+        table_value,
+        "bb_table_value_tensor",
+        4,
+        [0],
+        [["0101", "1010", "0000"]],
+    )
+    assert_value_tensor_consistent(
+        library,
+        library.bb_table_value_tensor,
+        table_value,
+        "bb_table_value_tensor",
+        7,
+        [42, 239],
+        [
+            ["0101010", "1010101"],
+            ["0000000", "1111111"],
+        ],
+    )
+    assert_value_tensor_consistent(
+        library,
+        library.bb_table_value_tensor,
+        table_value,
+        "bb_table_value_tensor",
+        17,
+        [42, 43],
+        [
+            ["01010101010101010", "10101010101010101"],
+            ["00000000000000000", "11111111111111111"],
+        ],
+    )
+
+
 def test_circuit_discovery(library):
     print(f"Check bb_circuit discovery ...")
 
@@ -557,6 +686,7 @@ if __name__ == "__main__":
     test_tree_cases(library)
     test_table_solvable_cases(library)
     test_table_big_cases(library)
+    test_value_tensors(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)

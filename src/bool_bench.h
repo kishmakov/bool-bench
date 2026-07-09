@@ -40,6 +40,17 @@ size_t bb_tree_cases_number(uint16_t bitness);
 // followed by f(input with flipped i-th bit) [1 bit x bitness]
 const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input);
 
+// Input: case_ids array of length cases.
+// Input: packed_inputs is not null-terminated and has length cases x reps x bitness.
+// Output: out has shape cases x reps x (2 * bitness + 1), stored row-major.
+void bb_tree_value_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    const char* packed_inputs,
+    size_t reps,
+    float* out);
+
 // Number of nodes or depth for given case
 size_t bb_tree_nodes(uint16_t bitness, size_t case_id);
 size_t bb_tree_depth(uint16_t bitness, size_t case_id);
@@ -62,6 +73,17 @@ size_t bb_table_cases_number(uint16_t bitness);
 // Output consists of the input [bitness bits] followed by f(input) [1 bit]
 // followed by f(input with flipped i-th bit) [1 bit x bitness]
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
+
+// Input: case_ids array of length cases.
+// Input: packed_inputs is not null-terminated and has length cases x reps x bitness.
+// Output: out has shape cases x reps x (2 * bitness + 1), stored row-major.
+void bb_table_value_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    const char* packed_inputs,
+    size_t reps,
+    float* out);
 
 // Input: 0/1 string of length (2 * bitness) x reps x (bitness - 1)
 // Output: 0/1 string of length (2 * bitness) x reps x (2 * bitness - 1)
