@@ -63,12 +63,6 @@ class Generator:
             ndim=1,
             flags="C_CONTIGUOUS",
         )
-        float_tensor = np.ctypeslib.ndpointer(
-            dtype=np.float32,
-            ndim=3,
-            flags="C_CONTIGUOUS",
-        )
-
         library.bb_tree_cases_number.argtypes = [ctypes.c_uint16]
         library.bb_tree_cases_number.restype = ctypes.c_size_t
 
@@ -106,7 +100,7 @@ class Generator:
             ctypes.c_size_t,
             ctypes.c_char_p,
             ctypes.c_size_t,
-            float_tensor,
+            ctypes.c_void_p,
         ]
         library.bb_tree_value_tensor.restype = None
 
@@ -123,7 +117,7 @@ class Generator:
             ctypes.c_size_t,
             ctypes.c_char_p,
             ctypes.c_size_t,
-            float_tensor,
+            ctypes.c_void_p,
         ]
         library.bb_table_value_tensor.restype = None
 
@@ -313,6 +307,7 @@ class Generator:
             (len(case_ids_array), reps, sample_point_dim(bitness)),
             dtype=np.float32,
         )
+        assert samples.flags["C_CONTIGUOUS"], samples.strides
         packed_inputs = _pack_input_bits(bitness, input_bits)
         value_fn(
             bitness,
@@ -320,7 +315,7 @@ class Generator:
             len(case_ids_array),
             packed_inputs,
             reps,
-            samples,
+            samples.ctypes.data,
         )
         return samples
 
