@@ -1,5 +1,7 @@
 #pragma once
 
+#include "bool_bench.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -7,6 +9,8 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+
+class RandomBoolGenerator;
 
 struct Div {
     size_t bitId;
@@ -33,11 +37,21 @@ struct DecisionTree {
         std::vector<bool>& path_used_bits,
         size_t path_used_count,
         bool required_value,
-        std::mt19937& rng);
+        RandomBoolGenerator& rng);
 
     void Finalize();
 
     bool Evaluate(std::string_view input) const;
+
+    void FillValueTensor(
+        size_t reps,
+        uint64_t seed,
+        float* out) const;
+
+    void FillRestrictionsTensor(
+        size_t reps,
+        uint64_t seed,
+        float* out) const;
 
 private:
     uint16_t bitness_;

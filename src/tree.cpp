@@ -19,14 +19,14 @@ using CaseKey = std::pair<uint16_t, size_t>;
 std::map<CaseKey, DecisionTree> g_decision_trees;
 
 DecisionTree BuildDecisionTree(uint16_t bitness, size_t case_id) {
-    std::mt19937 rng = PrepRNG(bitness, case_id);
+    RandomBoolGenerator rng(PrepRNG(bitness, case_id));
     DecisionTree tree(bitness);
     std::vector<bool> path_used_bits(bitness, false);
     tree.BuildSubtree(
         case_id,
         path_used_bits,
         /*path_used_count=*/0,
-        RandomBool(rng),
+        rng.Generate(),
         rng);
     tree.Finalize();
     return tree;
@@ -104,43 +104,46 @@ void bb_tree_value_tensor(
     uint16_t bitness,
     const size_t* case_ids,
     size_t cases,
-    const char* packed_inputs,
     size_t reps,
+    uint64_t seed,
     float* out)
 {
     assert(case_ids != nullptr);
-    assert(packed_inputs != nullptr);
     assert(out != nullptr);
 
     const size_t sample_size = 2 * bitness + 1;
-    thread_local FlippingSampler sampler;
 
     for (size_t case_index = 0; case_index < cases; ++case_index) {
         const size_t case_id = case_ids[case_index];
         assert(case_id < bb_tree_cases_number(bitness));
-
-        const auto evaluate = [bitness, case_id](std::string_view point) {
-            return EvaluateTreeCase(bitness, case_id, point);
-        };
-
-        for (size_t rep = 0; rep < reps; ++rep) {
-            const size_t input_offset = (case_index * reps + rep) * bitness;
-            const size_t output_offset = (case_index * reps + rep) * sample_size;
-            sampler.Reset(bitness, {packed_inputs + input_offset, bitness});
-            sampler.Fill(
-                out,
-                output_offset,
-                bitness,
-                evaluate);
-        }
+        const DecisionTree& tree = GetDecisionTree(bitness, case_id);
+        tree.FillValueTensor(
+            reps,
+            CaseInputSeed(seed, bitness, case_id),
+            out + case_index * reps * sample_size);
     }
 }
 
-const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, const char* input) {
-    assert(case_id < bb_tree_cases_number(bitness));
+void bb_tree_restrictions_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    size_t reps,
+    uint64_t seed,
+    float* out)
+{
+    assert(case_ids != nullptr);
+    assert(out != nullptr);
 
-    const auto evaluate = [bitness, case_id](std::string_view point) {
-        return EvaluateTreeCase(bitness, case_id, point);
-    };
-    return FillRestrictions(bitness, input, evaluate);
+    const size_t restrictions = 2 * bitness;
+    const size_t sample_size = 2 * bitness - 1;
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const size_t case_id = case_ids[case_index];
+        assert(case_id < bb_tree_cases_number(bitness));
+        const DecisionTree& tree = GetDecisionTree(bitness, case_id);
+        tree.FillRestrictionsTensor(
+            reps,
+            CaseInputSeed(seed, bitness, case_id),
+            out + case_index * restrictions * reps * sample_size);
+    }
 }

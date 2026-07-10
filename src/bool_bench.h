@@ -41,25 +41,31 @@ size_t bb_tree_cases_number(uint16_t bitness);
 const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input);
 
 // Input: case_ids array of length cases.
-// Input: packed_inputs is not null-terminated and has length cases x reps x bitness.
+// Inputs are generated deterministically from seed, bitness, and each case id.
 // Output: out has shape cases x reps x (2 * bitness + 1), stored row-major.
 void bb_tree_value_tensor(
     uint16_t bitness,
     const size_t* case_ids,
     size_t cases,
-    const char* packed_inputs,
     size_t reps,
+    uint64_t seed,
     float* out);
 
 // Number of nodes or depth for given case
 size_t bb_tree_nodes(uint16_t bitness, size_t case_id);
 size_t bb_tree_depth(uint16_t bitness, size_t case_id);
 
-// Input: 0/1 string of length (2 * bitness) x reps x (bitness - 1)
-// Output: 0/1 string of length (2 * bitness) x reps x (2 * bitness - 1)
-// We fix value of each bit to 0 and 1 and treat reps inputs for bb_tree_value
-// function, then concatenate all outputs.
-const char* bb_tree_restrictions(uint16_t bitness, size_t case_id, const char* input);
+// Input: case_ids array of length cases.
+// For each case, fixes every input bit to 0 and 1 and generates reps inputs
+// for the remaining bits deterministically from seed, bitness, and case id.
+// Output: cases x (2 * bitness) x reps x (2 * bitness - 1) stored row-major.
+void bb_tree_restrictions_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    size_t reps,
+    uint64_t seed,
+    float* out);
 
 /********************************* 2nd type ***********************************/
 
@@ -75,21 +81,27 @@ size_t bb_table_cases_number(uint16_t bitness);
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
 
 // Input: case_ids array of length cases.
-// Input: packed_inputs is not null-terminated and has length cases x reps x bitness.
+// Inputs are generated deterministically from seed, bitness, and each case id.
 // Output: out has shape cases x reps x (2 * bitness + 1), stored row-major.
 void bb_table_value_tensor(
     uint16_t bitness,
     const size_t* case_ids,
     size_t cases,
-    const char* packed_inputs,
     size_t reps,
+    uint64_t seed,
     float* out);
 
-// Input: 0/1 string of length (2 * bitness) x reps x (bitness - 1)
-// Output: 0/1 string of length (2 * bitness) x reps x (2 * bitness - 1)
-// We fix value of each bit to 0 and 1 and treat reps inputs for bb_table_value
-// function, then concatenate all outputs.
-const char* bb_table_restrictions(uint16_t bitness, size_t case_id, const char* input);
+// Input: case_ids array of length cases.
+// For each case, fixes every input bit to 0 and 1 and generates reps inputs
+// for the remaining bits deterministically from seed, bitness, and case id.
+// Output: cases x (2 * bitness) x reps x (2 * bitness - 1) stored row-major.
+void bb_table_restrictions_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    size_t reps,
+    uint64_t seed,
+    float* out);
 
 // Number of nodes or depth for given case
 size_t bb_table_nodes(uint16_t bitness, size_t case_id);

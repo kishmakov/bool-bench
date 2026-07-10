@@ -46,43 +46,43 @@ TABLE_BIG_CASES = [
         17,
         42,
         "01010101010101010",
-        "01010101010101010111000000111000110",
+        "01010101010101010001000111101010011",
     ),
     (
         24,
         188,
         "110010100111000101010011",
-        "1100101001110001010100111010111010101001011101101",
+        "1100101001110001010100110111011010001001101100000",
     ),
     (
         32,
         320,
         "01010101010101010101010101010101",
-        "01010101010101010101010101010101011000000101101101000111000101001",
+        "01010101010101010101010101010101001111001010100111010100100101001",
     ),
     (
         48,
         480,
         "110010101100101011001010110010101100101011001010",
-        "1100101011001010110010101100101011001010110010100001011011000001001010110100000110011111101011011",
+        "1100101011001010110010101100101011001010110010101000111001110111110010001101100001101111101011101",
     ),
     (
         64,
         640,
         "0011010100110101001101010011010100110101001101010011010100110101",
-        "001101010011010100110101001101010011010100110101001101010011010101110100101111001010111011010001111101000011000011001000011110110",
+        "001101010011010100110101001101010011010100110101001101010011010100110001110000001111101000011110110111110001011111000011001001010",
     ),
     (
         100,
         1000,
         "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
-        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001101101100011010001101100111110110110000101011001010010010000100100011010100100110010101010011110011001",
+        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001110100010110000101001000010010000110000000010111001011011100010011010011000110011011011110010010110000",
     ),
     (
         128,
         1280,
         "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
-        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110001100110000111111001001101111110101010111011001001011111100100001011001001101001001011011011110111000110101111011101010101101100",
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110101001111111111101001011000101100011011100110010110101111001111001110110111111011101110001111011001100000001101010110110000110111",
     ),
 ]
 
@@ -91,56 +91,56 @@ TREE_CASES = [
         17,
         42,
         "01010101010101010",
-        "01010101010101010000010000100001010",
-        10,
+        "01010101010101010010010100010000010",
+        9,
         42,
     ),
     (
         24,
         188,
         "110010100111000101010011",
-        "1100101001110001010100111110110110111111111101111",
-        19,
+        "1100101001110001010100110000000000010000100001000",
+        17,
         188,
     ),
     (
         32,
         320,
         "01010101010101010101010101010101",
-        "01010101010101010101010101010101010000101000000000000100000001010",
-        16,
+        "01010101010101010101010101010101111110111101010111101111011111111",
+        18,
         320,
     ),
     (
         48,
         480,
         "110010101100101011001010110010101100101011001010",
-        "1100101011001010110010101100101011001010110010100000001001000000000000000000000001000000000000100",
-        23,
+        "1100101011001010110010101100101011001010110010101111111011111011110111111101111111111011111111110",
+        20,
         480,
     ),
     (
         64,
         640,
         "0011010100110101001101010011010100110101001101010011010100110101",
-        "001101010011010100110101001101010011010100110101001101010011010111111111010111111111111111111111111111111101111111111111111111111",
-        22,
+        "001101010011010100110101001101010011010100110101001101010011010111111111111111111111111111111111111111111111111111111111111111110",
+        20,
         640,
     ),
     (
         100,
         1000,
         "0100110011010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011",
-        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001111111110111111111111111111111111110111111110111111111111111111111111111111111111111111111111111111111",
-        23,
+        "010011001101001100110100110011010011001101001100110100110011010011001101001100110100110011010011001111111111111111001111111111111111111111111111111111011111001111111111111011111110111111111101111111111",
+        20,
         1000,
     ),
     (
         128,
         1280,
         "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110",
-        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110111111111111111101111111111111111111011111111111111111111111111111111111111111111111111111111111111111111111110111111111111111111",
-        23,
+        "01101001100101100110100110010110011010011001011001101001100101100110100110010110011010011001011001101001100101100110100110010110111111111111111111111111111111101111111111111100111111111111101111111111111111111111111111111111111111111111101111111111111111110",
+        21,
         1280,
     ),
 ]
@@ -171,8 +171,8 @@ def load_library():
         ctypes.c_uint16,
         ctypes.POINTER(ctypes.c_size_t),
         ctypes.c_size_t,
-        ctypes.c_char_p,
         ctypes.c_size_t,
+        ctypes.c_uint64,
         ctypes.POINTER(ctypes.c_float),
     ]
     library.bb_tree_value_tensor.restype = None
@@ -188,8 +188,8 @@ def load_library():
         ctypes.c_uint16,
         ctypes.POINTER(ctypes.c_size_t),
         ctypes.c_size_t,
-        ctypes.c_char_p,
         ctypes.c_size_t,
+        ctypes.c_uint64,
         ctypes.POINTER(ctypes.c_float),
     ]
     library.bb_table_value_tensor.restype = None
@@ -200,19 +200,25 @@ def load_library():
     library.bb_table_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
     library.bb_table_depth.restype = ctypes.c_size_t
 
-    library.bb_tree_restrictions.argtypes = [
+    library.bb_tree_restrictions_tensor.argtypes = [
         ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
         ctypes.c_size_t,
-        ctypes.c_char_p,
+        ctypes.c_size_t,
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_float),
     ]
-    library.bb_tree_restrictions.restype = ctypes.c_char_p
+    library.bb_tree_restrictions_tensor.restype = None
 
-    library.bb_table_restrictions.argtypes = [
+    library.bb_table_restrictions_tensor.argtypes = [
         ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
         ctypes.c_size_t,
-        ctypes.c_char_p,
+        ctypes.c_size_t,
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_float),
     ]
-    library.bb_table_restrictions.restype = ctypes.c_char_p
+    library.bb_table_restrictions_tensor.restype = None
 
     library.bb_circuit_sets.argtypes = []
     library.bb_circuit_sets.restype = ctypes.c_char_p
@@ -297,6 +303,30 @@ def bit_to_signed_float(bit):
     return 1.0 if bit == "1" else -1.0
 
 
+def assert_block_inputs_consistent(generated_inputs, bitness, tensor_name):
+    reps = len(generated_inputs)
+    block_reps = reps // 2
+    blocks = (block_reps - 1).bit_length()
+    base = generated_inputs[0]
+    start = 0
+    bit_blocks = []
+    for block_id in range(blocks):
+        size = bitness // blocks + (1 if block_id < bitness % blocks else 0)
+        bit_blocks.append(range(start, start + size))
+        start += size
+    for rep in range(block_reps):
+        expected_bits = list(base)
+        for block_id, bit_ids in enumerate(bit_blocks):
+            if ((rep >> block_id) & 1) == 0:
+                continue
+            for bit_id in bit_ids:
+                expected_bits[bit_id] = "0" if expected_bits[bit_id] == "1" else "1"
+        assert generated_inputs[rep] == "".join(expected_bits), (
+            tensor_name,
+            generated_inputs,
+        )
+
+
 def assert_value_tensor_consistent(
     library,
     tensor_func,
@@ -304,111 +334,137 @@ def assert_value_tensor_consistent(
     tensor_name,
     bitness,
     case_ids,
-    input_bits,
+    reps,
+    seed,
+    expected_inputs=None,
 ):
-    assert len(case_ids) == len(input_bits), (len(case_ids), len(input_bits))
-    reps = len(input_bits[0])
-    assert all(len(case_input_bits) == reps for case_input_bits in input_bits)
-
     case_array = (ctypes.c_size_t * len(case_ids))(*case_ids)
-    packed_input = "".join(
-        bits
-        for case_input_bits in input_bits
-        for bits in case_input_bits
-    )
-    assert len(packed_input) == len(case_ids) * reps * bitness
-
     sample_size = 2 * bitness + 1
     output = (ctypes.c_float * (len(case_ids) * reps * sample_size))()
     tensor_func(
         bitness,
         case_array,
         len(case_ids),
-        packed_input.encode("ascii"),
         reps,
+        seed,
         output,
     )
 
+    repeated = (ctypes.c_float * len(output))()
+    tensor_func(
+        bitness,
+        case_array,
+        len(case_ids),
+        reps,
+        seed,
+        repeated,
+    )
+    assert list(output) == list(repeated), tensor_name
+
     for case_index, case_id in enumerate(case_ids):
-        for rep, bits in enumerate(input_bits[case_index]):
-            value = value_func(library, bitness, case_id, bits)
-            expected = [bit_to_signed_float(bit) for bit in value]
+        generated_inputs = []
+        for rep in range(reps):
             offset = (case_index * reps + rep) * sample_size
             actual = list(output[offset : offset + sample_size])
+            bits = "".join("1" if value == 1.0 else "0" for value in actual[:bitness])
+            generated_inputs.append(bits)
+            value = value_func(library, bitness, case_id, bits)
+            expected = [bit_to_signed_float(bit) for bit in value]
             assert actual == expected, (
                 f"{tensor_name}({bitness}) mismatch: "
                 f"case_index={case_index}, case_id={case_id}, rep={rep}, "
                 f"input={bits}, actual={actual}, expected={expected}"
             )
 
+        assert_block_inputs_consistent(generated_inputs, bitness, tensor_name)
+        if expected_inputs is not None:
+            assert generated_inputs == expected_inputs[case_index], (
+                tensor_name,
+                generated_inputs,
+                expected_inputs[case_index],
+            )
 
-def assert_case_restrictions_consistent(
+
+def assert_restrictions_tensor_consistent(
     library,
-    restrictions_func,
+    tensor_func,
     value_func,
-    restrictions_name,
+    tensor_name,
     bitness,
-    case_id,
+    case_ids,
+    reps,
+    seed,
 ):
     free_bits = bitness - 1
     sample_size = 2 * free_bits + 1
-    reps = 3
-    packed_input = "".join(
-        "1" if (restriction_id + rep + coord) % 2 else "0"
-        for restriction_id in range(bitness * 2)
-        for rep in range(reps)
-        for coord in range(free_bits)
+    restrictions = bitness * 2
+    case_array = (ctypes.c_size_t * len(case_ids))(*case_ids)
+    output = (ctypes.c_float * (
+        len(case_ids) * restrictions * reps * sample_size
+    ))()
+    tensor_func(
+        bitness,
+        case_array,
+        len(case_ids),
+        reps,
+        seed,
+        output,
     )
 
-    value = restrictions_func(
+    repeated = (ctypes.c_float * len(output))()
+    tensor_func(
         bitness,
-        case_id,
-        packed_input.encode("ascii"),
-    ).decode("ascii")
-    assert len(value) == bitness * 2 * reps * sample_size
+        case_array,
+        len(case_ids),
+        reps,
+        seed,
+        repeated,
+    )
+    assert list(output) == list(repeated), tensor_name
 
-    for fixed_bit_id in range(bitness):
-        for fixed_bit_value in range(2):
-            restriction_id = fixed_bit_id * 2 + fixed_bit_value
+    for case_index, case_id in enumerate(case_ids):
+        for fixed_bit_id in range(bitness):
+            for fixed_bit_value in range(2):
+                restriction_id = fixed_bit_id * 2 + fixed_bit_value
+                generated_inputs = []
 
-            for rep in range(reps):
-                offset = (restriction_id * reps + rep) * sample_size
-                value_chunk = value[offset : offset + sample_size]
-                input_offset = (restriction_id * reps + rep) * free_bits
-                free_input = packed_input[input_offset : input_offset + free_bits]
-                assert value_chunk[:free_bits] == free_input, (
-                    f"{restrictions_name}({bitness}, {case_id}) input mismatch: "
-                    f"fixed_bit_id={fixed_bit_id}, "
-                    f"fixed_bit_value={fixed_bit_value}, "
-                    f"rep={rep}, "
-                    f"actual={value_chunk[:free_bits]}, expected={free_input}"
-                )
-
-                full_input = list("0" * bitness)
-                full_input[fixed_bit_id] = str(fixed_bit_value)
-                for coord, bit_value in enumerate(free_input):
-                    full_bit_id = coord if coord < fixed_bit_id else coord + 1
-                    full_input[full_bit_id] = bit_value
-                full_input = "".join(full_input)
-
-                direct_value = value_func(library, bitness, case_id, full_input)
-                expected = (
-                    value_chunk[:free_bits]
-                    + direct_value[bitness]
-                    + "".join(
-                        direct_value[bitness + 1 + full_bit_id]
-                        for full_bit_id in range(bitness)
-                        if full_bit_id != fixed_bit_id
+                for rep in range(reps):
+                    offset = (
+                        (case_index * restrictions + restriction_id) * reps + rep
+                    ) * sample_size
+                    actual = list(output[offset : offset + sample_size])
+                    free_input = "".join(
+                        "1" if value == 1.0 else "0"
+                        for value in actual[:free_bits]
                     )
-                )
+                    generated_inputs.append(free_input)
 
-                assert value_chunk == expected, (
-                    f"{restrictions_name}({bitness}, {case_id}) mismatch: "
-                    f"fixed_bit_id={fixed_bit_id}, "
-                    f"fixed_bit_value={fixed_bit_value}, "
-                    f"rep={rep}, "
-                    f"actual={value_chunk}, expected={expected}"
-                )
+                    full_input = list("0" * bitness)
+                    full_input[fixed_bit_id] = str(fixed_bit_value)
+                    for coord, bit_value in enumerate(free_input):
+                        full_bit_id = coord if coord < fixed_bit_id else coord + 1
+                        full_input[full_bit_id] = bit_value
+                    full_input = "".join(full_input)
+
+                    direct_value = value_func(library, bitness, case_id, full_input)
+                    expected_bits = (
+                        free_input
+                        + direct_value[bitness]
+                        + "".join(
+                            direct_value[bitness + 1 + full_bit_id]
+                            for full_bit_id in range(bitness)
+                            if full_bit_id != fixed_bit_id
+                        )
+                    )
+                    expected = [bit_to_signed_float(bit) for bit in expected_bits]
+                    assert actual == expected, (
+                        f"{tensor_name}({bitness}) mismatch: "
+                        f"case_index={case_index}, case_id={case_id}, "
+                        f"restriction_id={restriction_id}, rep={rep}, "
+                        f"input={free_input}, actual={actual}, expected={expected}"
+                    )
+
+                assert_block_inputs_consistent(generated_inputs, free_bits, tensor_name)
 
 
 def assert_case_consistent(library, value_func, value_name, bitness, case_id, input_bits):
@@ -477,15 +533,6 @@ def test_tree_cases(library):
             f"actual={nodes}, expected={expected_nodes}"
         )
 
-        assert_case_restrictions_consistent(
-            library,
-            library.bb_tree_restrictions,
-            tree_value,
-            "bb_tree_restrictions",
-            bitness,
-            case_id,
-        )
-
         flipped = list(input_bits)
         flipped[0] = "1" if flipped[0] == "0" else "0"
         flipped = "".join(flipped)
@@ -538,16 +585,6 @@ def test_table_solvable_cases(library):
             f"bb_table_nodes({bitness}, {case_id}): "
             f"actual={nodes}, expected={expected_nodes}"
         )
-        if (bitness, case_id) == TABLE_BIG_CASES[0][:2]:
-            assert_case_restrictions_consistent(
-                library,
-                library.bb_table_restrictions,
-                table_value,
-                "bb_table_restrictions",
-                bitness,
-                case_id,
-            )
-
 
 def test_table_big_cases(library):
     print(f"Check big table cases ...")
@@ -566,15 +603,6 @@ def test_table_big_cases(library):
             f"bb_table_value({bitness}, {case_id}, {input_bits}): "
             f"actual={value}, expected={expected_value}"
         )
-        assert_case_restrictions_consistent(
-            library,
-            library.bb_table_restrictions,
-            table_value,
-            "bb_table_restrictions",
-            bitness,
-            case_id,
-        )
-
 
 def test_value_tensors(library):
     print(f"Check value tensor APIs ...")
@@ -586,7 +614,18 @@ def test_value_tensors(library):
         "bb_tree_value_tensor",
         17,
         [42],
-        [["01010101010101010", "10101010101010101", "00000000000000000"]],
+        8,
+        239,
+        [[
+            "10011010010000001",
+            "01100101110000001",
+            "10011010001111110",
+            "01100101101111110",
+            "00000111011011001",
+            "01110000001001110",
+            "00111101111110101",
+            "10110110111110001",
+        ]],
     )
     assert_value_tensor_consistent(
         library,
@@ -595,10 +634,8 @@ def test_value_tensors(library):
         "bb_tree_value_tensor",
         24,
         [188, 189],
-        [
-            ["110010100111000101010011", "001101011000111010101100"],
-            ["000000000000000000000000", "111111111111111111111111"],
-        ],
+        4,
+        12_345,
     )
     assert_value_tensor_consistent(
         library,
@@ -607,7 +644,8 @@ def test_value_tensors(library):
         "bb_table_value_tensor",
         4,
         [0],
-        [["0101", "1010", "0000"]],
+        8,
+        0,
     )
     assert_value_tensor_consistent(
         library,
@@ -616,10 +654,8 @@ def test_value_tensors(library):
         "bb_table_value_tensor",
         7,
         [42, 239],
-        [
-            ["0101010", "1010101"],
-            ["0000000", "1111111"],
-        ],
+        6,
+        0xffffffffffffffff,
     )
     assert_value_tensor_consistent(
         library,
@@ -628,11 +664,208 @@ def test_value_tensors(library):
         "bb_table_value_tensor",
         17,
         [42, 43],
-        [
-            ["01010101010101010", "10101010101010101"],
-            ["00000000000000000", "11111111111111111"],
-        ],
+        4,
+        42,
     )
+    assert_restrictions_tensor_consistent(
+        library,
+        library.bb_tree_restrictions_tensor,
+        tree_value,
+        "bb_tree_restrictions_tensor",
+        17,
+        [42, 43],
+        4,
+        239,
+    )
+    assert_restrictions_tensor_consistent(
+        library,
+        library.bb_table_restrictions_tensor,
+        table_value,
+        "bb_table_restrictions_tensor",
+        7,
+        [42, 239],
+        4,
+        17,
+    )
+    assert_restrictions_tensor_consistent(
+        library,
+        library.bb_table_restrictions_tensor,
+        table_value,
+        "bb_table_restrictions_tensor",
+        17,
+        [42],
+        4,
+        42,
+    )
+
+
+def test_table_value_tensor_golden(library):
+    print("Check bb_table_value_tensor ...")
+
+    bitness = 8
+    case_id = 509_888_371  # random.Random(239).randrange(1 << 32)
+    reps = 128
+    seed = 20_250_710
+    sample_size = 2 * bitness + 1
+    case_ids = (ctypes.c_size_t * 1)(case_id)
+    output = (ctypes.c_float * (reps * sample_size))()
+
+    library.bb_table_value_tensor(
+        bitness,
+        case_ids,
+        1,
+        reps,
+        seed,
+        output,
+    )
+
+    actual_bits = [
+        "".join(
+            "1" if value == 1.0 else "0"
+            for value in output[rep * sample_size : (rep + 1) * sample_size]
+        )
+        for rep in range(reps)
+    ]
+    actual = [
+        f"{row[:bitness]}|{row[bitness]}|{row[bitness + 1:]}"
+        for row in actual_bits
+    ]
+
+    expected_block_inversions = """
+10101111|1|11010000
+01101111|1|11100110
+10011111|0|10101000
+01011111|0|01011110
+10100111|0|11001111
+01100111|0|11001000
+10010111|1|10000110
+01010111|1|01000000
+10101011|0|10011101
+01101011|1|01110111
+10011011|0|00101010
+01011011|1|00110010
+10100011|1|00110000
+01100011|0|00001000
+10010011|1|01110110
+01010011|0|10001101
+10101101|0|00101010
+01101101|1|00110110
+10011101|0|11011101
+01011101|1|11110101
+10100101|1|10000000
+01100101|0|01001000
+10010101|1|10000110
+01010101|0|01001010
+10101001|0|11000001
+01101001|1|11010110
+10011001|1|00001000
+01011001|1|00100111
+10100001|0|00100111
+01100001|0|00101001
+10010001|1|11011110
+01010001|0|11011000
+10101110|0|01101101
+01101110|0|10110101
+10011110|0|10010010
+01011110|0|01110010
+10100110|1|01100000
+01100110|0|10000000
+10010110|0|11010001
+01010110|0|11000101
+10101010|1|01100010
+01101010|1|10110001
+10011010|0|00010000
+01011010|0|00111011
+10100010|0|00101111
+01100010|0|00111010
+10010010|0|01010001
+01010010|1|10110000
+10101100|0|10100100
+01101100|0|01110001
+10011100|1|11010000
+01011100|1|11110101
+10100100|0|00110111
+01100100|0|00010100
+10010100|0|00111001
+01010100|0|00101000
+10101000|1|01111010
+01101000|0|10101011
+10011000|0|00110101
+01011000|1|00010101
+10100000|1|11011000
+01100000|1|11010000
+10010000|0|11100001
+01010000|0|11101010
+""".strip().splitlines()
+    expected_random = """
+00111000|0|10001110
+00001110|0|11011101
+10100111|0|11001111
+00101011|1|01000110
+11100001|0|00111001
+01100011|0|00001000
+01101000|0|10101011
+11010101|0|01001100
+11100010|0|00001110
+00011001|0|11001100
+00011001|0|11001100
+11011110|0|00101010
+00000011|0|10000001
+10000010|1|10001101
+01001100|1|10010111
+11111010|0|10010111
+10110110|0|00010010
+00110001|0|00100011
+01110110|0|00001110
+11010000|1|00000011
+10111011|1|01001100
+11110011|0|01101010
+01000100|0|01001000
+11110100|0|11000000
+00100110|0|10100001
+10000010|1|10001101
+01011111|0|01011110
+11011101|1|10000001
+01110100|1|01001100
+01110001|0|10001001
+10101011|0|10011101
+00110001|0|00100011
+11101111|1|11111001
+10110010|0|00000011
+01111111|0|11010111
+11110001|1|00101000
+01010000|0|11101010
+00111101|0|01100011
+10001000|1|01100110
+00011000|0|01001100
+11000001|1|11010010
+00111100|1|01111010
+00100100|0|00111101
+10101001|0|11000001
+11000100|0|01001000
+00110111|1|00111100
+00101001|1|01000010
+10101000|1|01111010
+10001110|1|00001110
+01110010|1|00101010
+10111101|0|00000010
+11010001|1|01110011
+11001011|1|10001100
+11010011|1|01010011
+00001010|1|11001000
+01110101|0|00001001
+10010000|0|11100001
+11001001|0|00101011
+01000001|1|10000000
+01011100|1|11110101
+00011001|0|11001100
+11110011|0|01101010
+01001111|1|11100111
+10101111|1|11010000
+""".strip().splitlines()
+
+    expected = expected_block_inversions + expected_random
+    assert actual == expected, (actual, expected)
 
 
 def test_circuit_discovery(library):
@@ -687,6 +920,7 @@ if __name__ == "__main__":
     test_table_solvable_cases(library)
     test_table_big_cases(library)
     test_value_tensors(library)
+    test_table_value_tensor_golden(library)
     test_circuit_discovery(library)
     test_circuit_metadata(library)
     test_circuit_value(library)

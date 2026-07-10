@@ -31,11 +31,54 @@ using CaseKey = std::pair<uint16_t, size_t>;
 using SparseValueKey = std::tuple<uint16_t, size_t, std::vector<bool>>;
 using TableValueFunction = std::function<bool(std::string_view)>;
 
+class TableRepresentation {
+public:
+    TableRepresentation(uint16_t bitness, TableValueFunction evaluate)
+        : bitness_(bitness)
+        , evaluate_(std::move(evaluate))
+    {
+    }
+
+    bool Evaluate(std::string_view input) const {
+        return evaluate_(input);
+    }
+
+    void FillValueTensor(
+        size_t reps,
+        uint64_t seed,
+        float* out) const
+    {
+        FillGeneratedValueTensor(
+            bitness_,
+            reps,
+            seed,
+            out,
+            evaluate_);
+    }
+
+    void FillRestrictionsTensor(
+        size_t reps,
+        uint64_t seed,
+        float* out) const
+    {
+        FillGeneratedRestrictionsTensor(
+            bitness_,
+            reps,
+            seed,
+            out,
+            evaluate_);
+    }
+
+private:
+    uint16_t bitness_;
+    TableValueFunction evaluate_;
+};
+
 std::map<CaseKey, std::vector<bool>> g_medium_tables;
 std::mutex g_medium_tables_mutex;
 
 std::map<SparseValueKey, bool> g_sparse_values;
-std::map<CaseKey, std::mt19937> g_sparse_random_generators;
+std::map<CaseKey, RandomBoolGenerator> g_sparse_random_generators;
 std::mutex g_sparse_values_mutex;
 
 bool IsSmallBitness(uint16_t bitness) {
@@ -180,9 +223,9 @@ TableValueFunction MakeSparseTableValueFunction(uint16_t bitness, size_t case_id
             if (rng_it == g_sparse_random_generators.end()) {
                 rng_it = g_sparse_random_generators.emplace(
                     case_key,
-                    PrepRNG(bitness, case_id)).first;
+                    RandomBoolGenerator(PrepRNG(bitness, case_id))).first;
             }
-            it = g_sparse_values.emplace(key, RandomBool(rng_it->second)).first;
+            it = g_sparse_values.emplace(key, rng_it->second.Generate()).first;
         }
         return it->second;
     };
@@ -201,6 +244,10 @@ TableValueFunction MakeTableValueFunction(uint16_t bitness, size_t case_id) {
     }
 
     return MakeSparseTableValueFunction(bitness, case_id);
+}
+
+TableRepresentation MakeTableRepresentation(uint16_t bitness, size_t case_id) {
+    return TableRepresentation(bitness, MakeTableValueFunction(bitness, case_id));
 }
 
 }  // namespace
@@ -232,7 +279,10 @@ const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input) 
     value.assign(2 * bitness + 1, '0');
     sampler.Reset(bitness, {input, bitness});
 
-    const TableValueFunction evaluate = MakeTableValueFunction(bitness, case_id);
+    const TableRepresentation table = MakeTableRepresentation(bitness, case_id);
+    const auto evaluate = [&table](std::string_view input) {
+        return table.Evaluate(input);
+    };
     sampler.Fill(
         value,
         /*sample_offset=*/0,
@@ -246,43 +296,50 @@ void bb_table_value_tensor(
     uint16_t bitness,
     const size_t* case_ids,
     size_t cases,
-    const char* packed_inputs,
     size_t reps,
+    uint64_t seed,
     float* out)
 {
     assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
     assert(case_ids != nullptr);
-    assert(packed_inputs != nullptr);
     assert(out != nullptr);
 
     const size_t sample_size = 2 * bitness + 1;
-    thread_local FlippingSampler sampler;
 
     for (size_t case_index = 0; case_index < cases; ++case_index) {
         const size_t case_id = case_ids[case_index];
         assert(case_id < bb_table_cases_number(bitness));
-
-        const TableValueFunction evaluate = MakeTableValueFunction(bitness, case_id);
-
-        for (size_t rep = 0; rep < reps; ++rep) {
-            const size_t input_offset = (case_index * reps + rep) * bitness;
-            const size_t output_offset = (case_index * reps + rep) * sample_size;
-            sampler.Reset(bitness, {packed_inputs + input_offset, bitness});
-            sampler.Fill(
-                out,
-                output_offset,
-                bitness,
-                evaluate);
-        }
+        const TableRepresentation table = MakeTableRepresentation(bitness, case_id);
+        table.FillValueTensor(
+            reps,
+            CaseInputSeed(seed, bitness, case_id),
+            out + case_index * reps * sample_size);
     }
 }
 
-const char* bb_table_restrictions(uint16_t bitness, size_t case_id, const char* input) {
+void bb_table_restrictions_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    size_t reps,
+    uint64_t seed,
+    float* out)
+{
     assert(bitness >= kMinTableBitness && bitness <= kMaxTableBitness);
-    assert(case_id < bb_table_cases_number(bitness));
+    assert(case_ids != nullptr);
+    assert(out != nullptr);
 
-    const TableValueFunction evaluate = MakeTableValueFunction(bitness, case_id);
-    return FillRestrictions(bitness, input, evaluate);
+    const size_t restrictions = 2 * bitness;
+    const size_t sample_size = 2 * bitness - 1;
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const size_t case_id = case_ids[case_index];
+        assert(case_id < bb_table_cases_number(bitness));
+        const TableRepresentation table = MakeTableRepresentation(bitness, case_id);
+        table.FillRestrictionsTensor(
+            reps,
+            CaseInputSeed(seed, bitness, case_id),
+            out + case_index * restrictions * reps * sample_size);
+    }
 }
 
 size_t bb_table_nodes(uint16_t bitness, size_t case_id) {

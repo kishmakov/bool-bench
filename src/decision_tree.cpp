@@ -302,7 +302,7 @@ size_t DecisionTree::BuildSubtree(
     std::vector<bool>& path_used_bits,
     size_t path_used_count,
     bool required_value,
-    std::mt19937& rng)
+    RandomBoolGenerator& rng)
 {
     assert(path_used_bits.size() == bitness_);
     assert(path_used_count <= bitness_);
@@ -315,17 +315,17 @@ size_t DecisionTree::BuildSubtree(
     const size_t node_id = nodes.size();
     nodes.push_back(false);
 
-    const size_t bit_id = RandomUnusedBit(path_used_bits, free_bits, rng);
+    const size_t bit_id = RandomUnusedBit(path_used_bits, free_bits, rng.RNG());
     used_bits[bit_id] = true;
     path_used_bits[bit_id] = true;
 
-    auto [left_budget, right_budget] = SplitBudget(budget, rng);
+    auto [left_budget, right_budget] = SplitBudget(budget, rng.RNG());
 
     const size_t max_child_nodes = MaxInternalNodes(free_bits - 1);
     left_budget = std::min(left_budget, max_child_nodes);
     right_budget = std::min(right_budget, max_child_nodes);
 
-    const bool child0_required_value = RandomBool(rng);
+    const bool child0_required_value = rng.Generate();
     const bool child1_required_value = !child0_required_value;
 
     const size_t child0 = BuildSubtree(
@@ -365,6 +365,38 @@ bool DecisionTree::Evaluate(std::string_view input) const {
             ? division->child1
             : division->child0;
     }
+}
+
+void DecisionTree::FillValueTensor(
+    size_t reps,
+    uint64_t seed,
+    float* out) const
+{
+    const auto evaluate = [this](std::string_view input) {
+        return Evaluate(input);
+    };
+    FillGeneratedValueTensor(
+        bitness_,
+        reps,
+        seed,
+        out,
+        evaluate);
+}
+
+void DecisionTree::FillRestrictionsTensor(
+    size_t reps,
+    uint64_t seed,
+    float* out) const
+{
+    const auto evaluate = [this](std::string_view input) {
+        return Evaluate(input);
+    };
+    FillGeneratedRestrictionsTensor(
+        bitness_,
+        reps,
+        seed,
+        out,
+        evaluate);
 }
 
 DecisionTree BuildDepthOptimalDecisionTree(uint16_t bitness, uint64_t truth_table) {

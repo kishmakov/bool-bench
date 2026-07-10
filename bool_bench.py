@@ -98,8 +98,8 @@ class Generator:
             ctypes.c_uint16,
             size_t_array,
             ctypes.c_size_t,
-            ctypes.c_char_p,
             ctypes.c_size_t,
+            ctypes.c_uint64,
             ctypes.c_void_p,
         ]
         library.bb_tree_value_tensor.restype = None
@@ -115,25 +115,31 @@ class Generator:
             ctypes.c_uint16,
             size_t_array,
             ctypes.c_size_t,
-            ctypes.c_char_p,
             ctypes.c_size_t,
+            ctypes.c_uint64,
             ctypes.c_void_p,
         ]
         library.bb_table_value_tensor.restype = None
 
-        library.bb_tree_restrictions.argtypes = [
+        library.bb_tree_restrictions_tensor.argtypes = [
             ctypes.c_uint16,
+            size_t_array,
             ctypes.c_size_t,
-            ctypes.c_char_p,
+            ctypes.c_size_t,
+            ctypes.c_uint64,
+            ctypes.c_void_p,
         ]
-        library.bb_tree_restrictions.restype = ctypes.c_char_p
+        library.bb_tree_restrictions_tensor.restype = None
 
-        library.bb_table_restrictions.argtypes = [
+        library.bb_table_restrictions_tensor.argtypes = [
             ctypes.c_uint16,
+            size_t_array,
             ctypes.c_size_t,
-            ctypes.c_char_p,
+            ctypes.c_size_t,
+            ctypes.c_uint64,
+            ctypes.c_void_p,
         ]
-        library.bb_table_restrictions.restype = ctypes.c_char_p
+        library.bb_table_restrictions_tensor.restype = None
 
         library.bb_circuit_sets.argtypes = []
         library.bb_circuit_sets.restype = ctypes.c_char_p
@@ -185,27 +191,31 @@ class Generator:
         self,
         bitness: int,
         case_ids: Sequence[int],
-        input_bits: Sequence[Sequence[str]],
+        reps: int,
+        seed: int,
     ) -> np.ndarray:
         return self._value_tensor(
             self.library.bb_tree_value_tensor,
             bitness,
             case_ids,
-            input_bits,
+            reps,
+            seed,
         )
 
-    # Result shape: (bitness * 2) x (2 * bitness - 1).
-    def tree_restrictions(
+    # Result shape: len(case_ids) x (bitness * 2) x reps x (2 * bitness - 1).
+    def tree_restrictions_tensor(
         self,
         bitness: int,
-        case_id: int,
-        input_bits: str,
+        case_ids: Sequence[int],
+        reps: int,
+        seed: int,
     ) -> np.ndarray:
-        return self._restrictions(
-            self.library.bb_tree_restrictions,
+        return self._restrictions_tensor(
+            self.library.bb_tree_restrictions_tensor,
             bitness,
-            case_id,
-            input_bits,
+            case_ids,
+            reps,
+            seed,
         )
 
     def table_cases_number(self, bitness: int) -> int:
@@ -238,27 +248,31 @@ class Generator:
         self,
         bitness: int,
         case_ids: Sequence[int],
-        input_bits: Sequence[Sequence[str]],
+        reps: int,
+        seed: int,
     ) -> np.ndarray:
         return self._value_tensor(
             self.library.bb_table_value_tensor,
             bitness,
             case_ids,
-            input_bits,
+            reps,
+            seed,
         )
 
-    # Result shape: (bitness * 2) x (2 * bitness - 1).
-    def table_restrictions(
+    # Result shape: len(case_ids) x (bitness * 2) x reps x (2 * bitness - 1).
+    def table_restrictions_tensor(
         self,
         bitness: int,
-        case_id: int,
-        input_bits: str,
+        case_ids: Sequence[int],
+        reps: int,
+        seed: int,
     ) -> np.ndarray:
-        return self._restrictions(
-            self.library.bb_table_restrictions,
+        return self._restrictions_tensor(
+            self.library.bb_table_restrictions_tensor,
             bitness,
-            case_id,
-            input_bits,
+            case_ids,
+            reps,
+            seed,
         )
 
     def _value(
@@ -291,49 +305,60 @@ class Generator:
         value_fn,
         bitness: int,
         case_ids: Sequence[int],
-        input_bits: Sequence[Sequence[str]],
+        reps: int,
+        seed: int,
     ) -> np.ndarray:
         case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
         assert case_ids_array.ndim == 1, case_ids_array.shape
-        assert len(case_ids_array) == len(input_bits), (
-            len(case_ids_array),
-            len(input_bits),
-        )
-        assert input_bits, "empty input"
-        reps = len(input_bits[0])
-        assert all(len(case_input_bits) == reps for case_input_bits in input_bits)
+        assert len(case_ids_array) > 0, len(case_ids_array)
+        assert reps > 0, reps
+        assert reps % 2 == 0, reps
 
         samples = np.empty(
             (len(case_ids_array), reps, sample_point_dim(bitness)),
             dtype=np.float32,
         )
         assert samples.flags["C_CONTIGUOUS"], samples.strides
-        packed_inputs = _pack_input_bits(bitness, input_bits)
         value_fn(
             bitness,
             case_ids_array,
             len(case_ids_array),
-            packed_inputs,
             reps,
+            seed,
             samples.ctypes.data,
         )
         return samples
 
-    def _restrictions(
+    def _restrictions_tensor(
         self,
-        restrictions_fn: Callable[[int, int, bytes], bytes],
+        restrictions_fn,
         bitness: int,
-        case_id: int,
-        input_bits: str,
+        case_ids: Sequence[int],
+        reps: int,
+        seed: int,
     ) -> np.ndarray:
-        free_bits = bitness - 1
+        case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
+        assert case_ids_array.ndim == 1, case_ids_array.shape
+        assert len(case_ids_array) > 0, len(case_ids_array)
+        assert reps > 0, reps
+        assert reps % 2 == 0, reps
+
         restrictions = bitness * 2
-        assert len(input_bits) % (restrictions * free_bits) == 0
-        reps = len(input_bits) // (restrictions * free_bits)
-        value = restrictions_fn(bitness, case_id, input_bits.encode("ascii"))
         point_dim = restriction_point_dim(bitness)
-        signed = _ascii_bits_to_signed(value, restrictions * reps * point_dim)
-        return signed.reshape(restrictions, reps, point_dim)
+        samples = np.empty(
+            (len(case_ids_array), restrictions, reps, point_dim),
+            dtype=np.float32,
+        )
+        assert samples.flags["C_CONTIGUOUS"], samples.strides
+        restrictions_fn(
+            bitness,
+            case_ids_array,
+            len(case_ids_array),
+            reps,
+            seed,
+            samples.ctypes.data,
+        )
+        return samples
 
     def circuit_sets(self) -> list[str]:
         return _split_newlines(self.library.bb_circuit_sets())
@@ -376,15 +401,6 @@ def _ascii_bits_to_signed(value: bytes, expected_len: int) -> np.ndarray:
     assert len(value) == expected_len
     bits = np.frombuffer(value, dtype=np.uint8).astype(np.int8) - ord("0")
     return bits * 2 - 1
-
-
-def _pack_input_bits(bitness: int, input_bits: Sequence[Sequence[str]]) -> bytes:
-    parts = []
-    for case_input_bits in input_bits:
-        for bits in case_input_bits:
-            assert len(bits) == bitness, (len(bits), bitness)
-            parts.append(bits)
-    return "".join(parts).encode("ascii")
 
 
 def _split_newlines(value: bytes) -> list[str]:
