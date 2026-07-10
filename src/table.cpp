@@ -342,14 +342,36 @@ void bb_table_restrictions_tensor(
     }
 }
 
-size_t bb_table_nodes(uint16_t bitness, size_t case_id) {
+void bb_table_nodes_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out)
+{
     assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
-    const std::vector<bool> table = SolvableTableVector(bitness, case_id);
-    return SolveForSize(bitness, table);
+    assert(case_ids != nullptr);
+    assert(out != nullptr);
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const std::vector<bool> table = SolvableTableVector(
+            bitness,
+            case_ids[case_index]);
+        out[case_index] = static_cast<float>(SolveForSize(bitness, table));
+    }
 }
 
-size_t bb_table_depth(uint16_t bitness, size_t case_id) {
+void bb_table_depth_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out)
+{
     assert(bitness >= kMinTableBitness && bitness <= kSolvableTableBitness);
-    const std::vector<bool> table = SolvableTableVector(bitness, case_id);
-    return SolveForDepth(bitness, table);
+    assert(case_ids != nullptr);
+    assert(out != nullptr);
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const std::vector<bool> table = SolvableTableVector(
+            bitness,
+            case_ids[case_index]);
+        out[case_index] = static_cast<float>(SolveForDepth(bitness, table));
+    }
 }

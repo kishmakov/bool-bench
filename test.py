@@ -154,11 +154,21 @@ def load_library():
     library.bb_table_solvable_bitness.argtypes = []
     library.bb_table_solvable_bitness.restype = ctypes.c_uint16
 
-    library.bb_tree_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_tree_nodes.restype = ctypes.c_size_t
+    library.bb_tree_nodes_tensor.argtypes = [
+        ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_float),
+    ]
+    library.bb_tree_nodes_tensor.restype = None
 
-    library.bb_tree_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_tree_depth.restype = ctypes.c_size_t
+    library.bb_tree_depth_tensor.argtypes = [
+        ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_float),
+    ]
+    library.bb_tree_depth_tensor.restype = None
 
     library.bb_tree_value.argtypes = [
         ctypes.c_uint16,
@@ -194,11 +204,21 @@ def load_library():
     ]
     library.bb_table_value_tensor.restype = None
 
-    library.bb_table_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_table_nodes.restype = ctypes.c_size_t
+    library.bb_table_nodes_tensor.argtypes = [
+        ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_float),
+    ]
+    library.bb_table_nodes_tensor.restype = None
 
-    library.bb_table_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-    library.bb_table_depth.restype = ctypes.c_size_t
+    library.bb_table_depth_tensor.argtypes = [
+        ctypes.c_uint16,
+        ctypes.POINTER(ctypes.c_size_t),
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_float),
+    ]
+    library.bb_table_depth_tensor.restype = None
 
     library.bb_tree_restrictions_tensor.argtypes = [
         ctypes.c_uint16,
@@ -325,6 +345,27 @@ def assert_block_inputs_consistent(generated_inputs, bitness, tensor_name):
             tensor_name,
             generated_inputs,
         )
+
+
+def assert_metric_tensor_consistent(
+    tensor_func,
+    tensor_name,
+    bitness,
+    case_ids,
+    expected,
+):
+    case_array = (ctypes.c_size_t * len(case_ids))(*case_ids)
+    output = (ctypes.c_float * len(case_ids))()
+    tensor_func(
+        bitness,
+        case_array,
+        len(case_ids),
+        output,
+    )
+
+    actual = list(output)
+    expected = [float(value) for value in expected]
+    assert actual == expected, (tensor_name, actual, expected)
 
 
 def assert_value_tensor_consistent(
@@ -522,15 +563,19 @@ def test_tree_cases(library):
             f"actual={value}, expected={expected_value}"
         )
 
-        depth = library.bb_tree_depth(bitness, case_id)
-        assert depth == expected_depth, (
-            f"bb_tree_depth({bitness}, {case_id}): "
-            f"actual={depth}, expected={expected_depth}"
+        assert_metric_tensor_consistent(
+            library.bb_tree_depth_tensor,
+            "bb_tree_depth_tensor",
+            bitness,
+            [case_id],
+            [expected_depth],
         )
-        nodes = library.bb_tree_nodes(bitness, case_id)
-        assert nodes == expected_nodes, (
-            f"bb_tree_nodes({bitness}, {case_id}): "
-            f"actual={nodes}, expected={expected_nodes}"
+        assert_metric_tensor_consistent(
+            library.bb_tree_nodes_tensor,
+            "bb_tree_nodes_tensor",
+            bitness,
+            [case_id],
+            [expected_nodes],
         )
 
         flipped = list(input_bits)
@@ -575,15 +620,19 @@ def test_table_solvable_cases(library):
             f"actual={value}, expected={expected_value}"
         )
 
-        depth = library.bb_table_depth(bitness, case_id)
-        assert depth == expected_depth, (
-            f"bb_table_depth({bitness}, {case_id}): "
-            f"actual={depth}, expected={expected_depth}"
+        assert_metric_tensor_consistent(
+            library.bb_table_depth_tensor,
+            "bb_table_depth_tensor",
+            bitness,
+            [case_id],
+            [expected_depth],
         )
-        nodes = library.bb_table_nodes(bitness, case_id)
-        assert nodes == expected_nodes, (
-            f"bb_table_nodes({bitness}, {case_id}): "
-            f"actual={nodes}, expected={expected_nodes}"
+        assert_metric_tensor_consistent(
+            library.bb_table_nodes_tensor,
+            "bb_table_nodes_tensor",
+            bitness,
+            [case_id],
+            [expected_nodes],
         )
 
 def test_table_big_cases(library):
@@ -603,6 +652,40 @@ def test_table_big_cases(library):
             f"bb_table_value({bitness}, {case_id}, {input_bits}): "
             f"actual={value}, expected={expected_value}"
         )
+
+
+def test_metric_tensors(library):
+    print("Check depth/node tensor APIs ...")
+
+    assert_metric_tensor_consistent(
+        library.bb_tree_nodes_tensor,
+        "bb_tree_nodes_tensor",
+        17,
+        [0, 42, 239],
+        [0, 42, 239],
+    )
+    assert_metric_tensor_consistent(
+        library.bb_tree_depth_tensor,
+        "bb_tree_depth_tensor",
+        17,
+        [0, 42, 239],
+        [0, 9, 16],
+    )
+    assert_metric_tensor_consistent(
+        library.bb_table_nodes_tensor,
+        "bb_table_nodes_tensor",
+        4,
+        [0, 3190, 11304],
+        [0, 7, 6],
+    )
+    assert_metric_tensor_consistent(
+        library.bb_table_depth_tensor,
+        "bb_table_depth_tensor",
+        7,
+        [42, 239],
+        [7, 7],
+    )
+
 
 def test_value_tensors(library):
     print(f"Check value tensor APIs ...")
@@ -919,6 +1002,7 @@ if __name__ == "__main__":
     test_tree_cases(library)
     test_table_solvable_cases(library)
     test_table_big_cases(library)
+    test_metric_tensors(library)
     test_value_tensors(library)
     test_table_value_tensor_golden(library)
     test_circuit_discovery(library)

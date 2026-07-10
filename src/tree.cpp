@@ -63,18 +63,37 @@ size_t bb_tree_cases_number(uint16_t bitness) {
     return kTreeCasesNumber;
 }
 
-size_t bb_tree_nodes(uint16_t bitness, size_t case_id) {
-    assert(case_id < bb_tree_cases_number(bitness));
-
-    const DecisionTree& tree = GetDecisionTree(bitness, case_id);
-    return tree.nodes.size() - tree.num_leafs;
+void bb_tree_nodes_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out)
+{
+    assert(case_ids != nullptr);
+    assert(out != nullptr);
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const size_t case_id = case_ids[case_index];
+        assert(case_id < bb_tree_cases_number(bitness));
+        const DecisionTree& tree = GetDecisionTree(bitness, case_id);
+        out[case_index] = static_cast<float>(
+            tree.nodes.size() - tree.num_leafs);
+    }
 }
 
-size_t bb_tree_depth(uint16_t bitness, size_t case_id) {
-    assert(case_id < bb_tree_cases_number(bitness));
-
-    const DecisionTree& tree = GetDecisionTree(bitness, case_id);
-    return tree.depth;
+void bb_tree_depth_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out)
+{
+    assert(case_ids != nullptr);
+    assert(out != nullptr);
+    for (size_t case_index = 0; case_index < cases; ++case_index) {
+        const size_t case_id = case_ids[case_index];
+        assert(case_id < bb_tree_cases_number(bitness));
+        const DecisionTree& tree = GetDecisionTree(bitness, case_id);
+        out[case_index] = static_cast<float>(tree.depth);
+    }
 }
 
 const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input) {

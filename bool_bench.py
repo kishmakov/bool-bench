@@ -75,17 +75,37 @@ class Generator:
         library.bb_min_tree_bitness.argtypes = []
         library.bb_min_tree_bitness.restype = ctypes.c_uint16
 
-        library.bb_tree_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_tree_nodes.restype = ctypes.c_size_t
+        library.bb_tree_nodes_tensor.argtypes = [
+            ctypes.c_uint16,
+            size_t_array,
+            ctypes.c_size_t,
+            ctypes.c_void_p,
+        ]
+        library.bb_tree_nodes_tensor.restype = None
 
-        library.bb_tree_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_tree_depth.restype = ctypes.c_size_t
+        library.bb_tree_depth_tensor.argtypes = [
+            ctypes.c_uint16,
+            size_t_array,
+            ctypes.c_size_t,
+            ctypes.c_void_p,
+        ]
+        library.bb_tree_depth_tensor.restype = None
 
-        library.bb_table_nodes.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_table_nodes.restype = ctypes.c_size_t
+        library.bb_table_nodes_tensor.argtypes = [
+            ctypes.c_uint16,
+            size_t_array,
+            ctypes.c_size_t,
+            ctypes.c_void_p,
+        ]
+        library.bb_table_nodes_tensor.restype = None
 
-        library.bb_table_depth.argtypes = [ctypes.c_uint16, ctypes.c_size_t]
-        library.bb_table_depth.restype = ctypes.c_size_t
+        library.bb_table_depth_tensor.argtypes = [
+            ctypes.c_uint16,
+            size_t_array,
+            ctypes.c_size_t,
+            ctypes.c_void_p,
+        ]
+        library.bb_table_depth_tensor.restype = None
 
         library.bb_tree_value.argtypes = [
             ctypes.c_uint16,
@@ -167,11 +187,27 @@ class Generator:
     def min_tree_bitness(self) -> int:
         return int(self.library.bb_min_tree_bitness())
 
-    def tree_nodes(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_tree_nodes(bitness, case_id))
+    def tree_nodes_tensor(
+        self,
+        bitness: int,
+        case_ids: Sequence[int],
+    ) -> np.ndarray:
+        return self._metric_tensor(
+            self.library.bb_tree_nodes_tensor,
+            bitness,
+            case_ids,
+        )
 
-    def tree_depth(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_tree_depth(bitness, case_id))
+    def tree_depth_tensor(
+        self,
+        bitness: int,
+        case_ids: Sequence[int],
+    ) -> np.ndarray:
+        return self._metric_tensor(
+            self.library.bb_tree_depth_tensor,
+            bitness,
+            case_ids,
+        )
 
     # Result shape: 2 * bitness + 1.
     def tree_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
@@ -224,11 +260,27 @@ class Generator:
     def table_solvable_bitness(self) -> int:
         return int(self.library.bb_table_solvable_bitness())
 
-    def table_nodes(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_table_nodes(bitness, case_id))
+    def table_nodes_tensor(
+        self,
+        bitness: int,
+        case_ids: Sequence[int],
+    ) -> np.ndarray:
+        return self._metric_tensor(
+            self.library.bb_table_nodes_tensor,
+            bitness,
+            case_ids,
+        )
 
-    def table_depth(self, bitness: int, case_id: int) -> int:
-        return int(self.library.bb_table_depth(bitness, case_id))
+    def table_depth_tensor(
+        self,
+        bitness: int,
+        case_ids: Sequence[int],
+    ) -> np.ndarray:
+        return self._metric_tensor(
+            self.library.bb_table_depth_tensor,
+            bitness,
+            case_ids,
+        )
 
     # Result shape: 2 * bitness + 1.
     def table_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
@@ -328,6 +380,26 @@ class Generator:
             samples.ctypes.data,
         )
         return samples
+
+    def _metric_tensor(
+        self,
+        metric_fn,
+        bitness: int,
+        case_ids: Sequence[int],
+    ) -> np.ndarray:
+        case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
+        assert case_ids_array.ndim == 1, case_ids_array.shape
+        assert len(case_ids_array) > 0, len(case_ids_array)
+
+        values = np.empty(len(case_ids_array), dtype=np.float32)
+        assert values.flags["C_CONTIGUOUS"], values.strides
+        metric_fn(
+            bitness,
+            case_ids_array,
+            len(case_ids_array),
+            values.ctypes.data,
+        )
+        return values
 
     def _restrictions_tensor(
         self,

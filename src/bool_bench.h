@@ -51,9 +51,18 @@ void bb_tree_value_tensor(
     uint64_t seed,
     float* out);
 
-// Number of nodes or depth for given case
-size_t bb_tree_nodes(uint16_t bitness, size_t case_id);
-size_t bb_tree_depth(uint16_t bitness, size_t case_id);
+// Input: case_ids array of length cases.
+// Output: out has shape cases and contains node counts or depths.
+void bb_tree_nodes_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out);
+void bb_tree_depth_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out);
 
 // Input: case_ids array of length cases.
 // For each case, fixes every input bit to 0 and 1 and generates reps inputs
@@ -103,9 +112,18 @@ void bb_table_restrictions_tensor(
     uint64_t seed,
     float* out);
 
-// Number of nodes or depth for given case
-size_t bb_table_nodes(uint16_t bitness, size_t case_id);
-size_t bb_table_depth(uint16_t bitness, size_t case_id);
+// Input: case_ids array of length cases.
+// Output: out has shape cases and contains node counts or depths.
+void bb_table_nodes_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out);
+void bb_table_depth_tensor(
+    uint16_t bitness,
+    const size_t* case_ids,
+    size_t cases,
+    float* out);
 
 /********************************* 3rd type ***********************************/
 
