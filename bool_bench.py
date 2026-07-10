@@ -1,23 +1,18 @@
 from __future__ import annotations
 
-import atexit
 import ctypes
-import multiprocessing as mp
 import os
-import numpy as np
-from collections.abc import Callable, Iterator, Sequence
+import weakref
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from tqdm import tqdm
+
+import numpy as np
 
 
 _LIBRARY_NAME = "libbb.so"
 
 
 def _find_library() -> Path:
-    # Locate libbb.so relative to this module, so the same file works
-    # whether bool-bench is checked out standalone (built into ./build) or used
-    # as a submodule whose .so is built into the superproject's build dir.
-    # BOOL_BENCH_LIBRARY overrides discovery with an explicit path.
     override = os.environ.get("BOOL_BENCH_LIBRARY")
     if override:
         return Path(override)
@@ -45,10 +40,166 @@ def circuit_sample_point_dim(inputs: int, outputs: int) -> int:
     return inputs + outputs * (inputs + 1)
 
 
+def _wrap_owned_float_buffer(
+    library: ctypes.CDLL,
+    pointer,
+    shape: tuple[int, ...],
+) -> np.ndarray:
+    assert pointer
+    array = np.ctypeslib.as_array(pointer, shape=shape)
+    weakref.finalize(array, library.bb_float_buffer_destroy, pointer)
+    return array
+
+
+class GeneratedTensor:
+    def __init__(
+        self,
+        generator: Generator,
+        handle: int,
+        bitness: int,
+        cases: int,
+        reps: int,
+    ) -> None:
+        self._generator = generator
+        self._handle = handle
+        self.bitness = bitness
+        self.cases = cases
+        self.reps = reps
+        self._values: np.ndarray | None = None
+
+    def acquire(self) -> np.ndarray:
+        assert self._handle is not None, "released tensor"
+        assert self._values is None, "tensor already acquired"
+        library = self._generator.library
+        library.bb_tensor_acquire(self._handle)
+        pointer = library.bb_tensor_take_values(self._handle)
+        shape = (
+            self.cases,
+            2 * self.bitness,
+            self.reps,
+            restriction_point_dim(self.bitness),
+        )
+        self._values = _wrap_owned_float_buffer(library, pointer, shape)
+        library.bb_tensor_release(self._generator.context, self._handle)
+        self._generator._forget(self)
+        self._handle = None
+        return self._values
+
+    def release(self) -> None:
+        assert self._values is not None, "tensor not acquired"
+        self._values = None
+
+    def _invalidate(self) -> None:
+        self._handle = None
+
+
+class GeneratedData:
+    def __init__(
+        self,
+        generator: Generator,
+        handle: int,
+        recursive_table: bool,
+    ) -> None:
+        self._generator = generator
+        self._handle = handle
+        self.recursive_table = recursive_table
+        self.bitness: int | None = None
+        self.cases: int | None = None
+        self.reps: int | None = None
+        self.values: np.ndarray | None = None
+        self.targets: np.ndarray | None = None
+        self._acquired = False
+
+    def acquire(self) -> GeneratedData:
+        assert self._handle is not None, "released data"
+        assert self.values is None, "data already acquired"
+        library = self._generator.library
+        library.bb_data_acquire(self._handle)
+        self.bitness = int(library.bb_data_bitness(self._handle))
+        self.cases = int(library.bb_data_cases(self._handle))
+        self.reps = int(library.bb_data_reps(self._handle))
+
+        values_pointer = library.bb_data_take_values(self._handle)
+        assert values_pointer
+        self.values = _wrap_owned_float_buffer(
+            library,
+            values_pointer,
+            (self.cases, self.reps, sample_point_dim(self.bitness)),
+        )
+
+        targets_pointer = library.bb_data_take_targets(self._handle)
+        if targets_pointer:
+            self.targets = _wrap_owned_float_buffer(
+                library,
+                targets_pointer,
+                (self.cases,),
+            )
+        else:
+            assert self.recursive_table
+            self.targets = None
+        self._acquired = True
+
+        if not self.recursive_table:
+            library.bb_data_release(self._generator.context, self._handle)
+            self._generator._forget(self)
+            self._handle = None
+        return self
+
+    def restrictions(self, first_case: int, cases: int) -> GeneratedTensor:
+        assert self._handle is not None, "released data"
+        assert self.values is not None, "data not acquired"
+        assert self.recursive_table
+        assert self.bitness is not None
+        assert self.reps is not None
+        assert self.cases is not None
+        assert cases > 0, cases
+        assert first_case + cases <= self.cases, (
+            first_case,
+            cases,
+            self.cases,
+        )
+        handle = self._generator.library.bb_table_restrictions_tensor(
+            self._generator.context,
+            self._handle,
+            first_case,
+            cases,
+        )
+        assert handle
+        tensor = GeneratedTensor(
+            self._generator,
+            handle,
+            self.bitness,
+            cases,
+            self.reps,
+        )
+        self._generator._remember(tensor)
+        return tensor
+
+    def release(self) -> None:
+        assert self._acquired, "data not acquired"
+        self.values = None
+        self.targets = None
+        if self._handle is not None:
+            self._generator.library.bb_data_release(
+                self._generator.context,
+                self._handle,
+            )
+            self._generator._forget(self)
+            self._handle = None
+        self._acquired = False
+
+    def _invalidate(self) -> None:
+        self._handle = None
+
+
 class Generator:
-    def __init__(self, library_path: Path):
+    def __init__(self, library_path: Path, workers: int = 1):
+        assert workers > 0, workers
         self.library_path = str(library_path)
-        self._library = None
+        self.workers = workers
+        self._library: ctypes.CDLL | None = None
+        self._context: int | None = None
+        self._owned: set[GeneratedData | GeneratedTensor] = set()
 
     @property
     def library(self) -> ctypes.CDLL:
@@ -56,56 +207,72 @@ class Generator:
             self._library = self._load_library()
         return self._library
 
+    @property
+    def context(self) -> int:
+        if self._context is None:
+            context = self.library.bb_generator_create(self.workers)
+            assert context
+            self._context = context
+        return self._context
+
+    def close(self) -> None:
+        if self._context is None:
+            return
+        self.library.bb_generator_destroy(self._context)
+        self._context = None
+        for owner in list(self._owned):
+            owner._invalidate()
+        self._owned.clear()
+
+    def _remember(self, owner: GeneratedData | GeneratedTensor) -> None:
+        assert owner not in self._owned
+        self._owned.add(owner)
+
+    def _forget(self, owner: GeneratedData | GeneratedTensor) -> None:
+        assert owner in self._owned
+        self._owned.remove(owner)
+
     def _load_library(self) -> ctypes.CDLL:
         library = ctypes.CDLL(self.library_path)
-        size_t_array = np.ctypeslib.ndpointer(
-            dtype=np.uintp,
-            ndim=1,
-            flags="C_CONTIGUOUS",
-        )
+        float_pointer = ctypes.POINTER(ctypes.c_float)
+
+        library.bb_generator_create.argtypes = [ctypes.c_size_t]
+        library.bb_generator_create.restype = ctypes.c_void_p
+        library.bb_generator_destroy.argtypes = [ctypes.c_void_p]
+        library.bb_generator_destroy.restype = None
+
+        library.bb_data_acquire.argtypes = [ctypes.c_void_p]
+        library.bb_data_acquire.restype = None
+        library.bb_data_bitness.argtypes = [ctypes.c_void_p]
+        library.bb_data_bitness.restype = ctypes.c_uint16
+        library.bb_data_cases.argtypes = [ctypes.c_void_p]
+        library.bb_data_cases.restype = ctypes.c_size_t
+        library.bb_data_reps.argtypes = [ctypes.c_void_p]
+        library.bb_data_reps.restype = ctypes.c_size_t
+        library.bb_data_take_values.argtypes = [ctypes.c_void_p]
+        library.bb_data_take_values.restype = float_pointer
+        library.bb_data_take_targets.argtypes = [ctypes.c_void_p]
+        library.bb_data_take_targets.restype = float_pointer
+        library.bb_data_release.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        library.bb_data_release.restype = None
+
+        library.bb_tensor_acquire.argtypes = [ctypes.c_void_p]
+        library.bb_tensor_acquire.restype = None
+        library.bb_tensor_take_values.argtypes = [ctypes.c_void_p]
+        library.bb_tensor_take_values.restype = float_pointer
+        library.bb_tensor_release.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        library.bb_tensor_release.restype = None
+        library.bb_float_buffer_destroy.argtypes = [float_pointer]
+        library.bb_float_buffer_destroy.restype = None
+
         library.bb_tree_cases_number.argtypes = [ctypes.c_uint16]
         library.bb_tree_cases_number.restype = ctypes.c_size_t
-
         library.bb_table_cases_number.argtypes = [ctypes.c_uint16]
         library.bb_table_cases_number.restype = ctypes.c_size_t
-
         library.bb_table_solvable_bitness.argtypes = []
         library.bb_table_solvable_bitness.restype = ctypes.c_uint16
-
         library.bb_min_tree_bitness.argtypes = []
         library.bb_min_tree_bitness.restype = ctypes.c_uint16
-
-        library.bb_tree_nodes_tensor.argtypes = [
-            ctypes.c_uint16,
-            size_t_array,
-            ctypes.c_size_t,
-            ctypes.c_void_p,
-        ]
-        library.bb_tree_nodes_tensor.restype = None
-
-        library.bb_tree_depth_tensor.argtypes = [
-            ctypes.c_uint16,
-            size_t_array,
-            ctypes.c_size_t,
-            ctypes.c_void_p,
-        ]
-        library.bb_tree_depth_tensor.restype = None
-
-        library.bb_table_nodes_tensor.argtypes = [
-            ctypes.c_uint16,
-            size_t_array,
-            ctypes.c_size_t,
-            ctypes.c_void_p,
-        ]
-        library.bb_table_nodes_tensor.restype = None
-
-        library.bb_table_depth_tensor.argtypes = [
-            ctypes.c_uint16,
-            size_t_array,
-            ctypes.c_size_t,
-            ctypes.c_void_p,
-        ]
-        library.bb_table_depth_tensor.restype = None
 
         library.bb_tree_value.argtypes = [
             ctypes.c_uint16,
@@ -113,16 +280,14 @@ class Generator:
             ctypes.c_char_p,
         ]
         library.bb_tree_value.restype = ctypes.c_char_p
-
         library.bb_tree_value_tensor.argtypes = [
+            ctypes.c_void_p,
             ctypes.c_uint16,
-            size_t_array,
             ctypes.c_size_t,
             ctypes.c_size_t,
             ctypes.c_uint64,
-            ctypes.c_void_p,
         ]
-        library.bb_tree_value_tensor.restype = None
+        library.bb_tree_value_tensor.restype = ctypes.c_void_p
 
         library.bb_table_value.argtypes = [
             ctypes.c_uint16,
@@ -130,49 +295,31 @@ class Generator:
             ctypes.c_char_p,
         ]
         library.bb_table_value.restype = ctypes.c_char_p
-
         library.bb_table_value_tensor.argtypes = [
+            ctypes.c_void_p,
             ctypes.c_uint16,
-            size_t_array,
+            ctypes.c_size_t,
             ctypes.c_size_t,
             ctypes.c_size_t,
             ctypes.c_uint64,
-            ctypes.c_void_p,
         ]
-        library.bb_table_value_tensor.restype = None
-
-        library.bb_tree_restrictions_tensor.argtypes = [
-            ctypes.c_uint16,
-            size_t_array,
-            ctypes.c_size_t,
-            ctypes.c_size_t,
-            ctypes.c_uint64,
-            ctypes.c_void_p,
-        ]
-        library.bb_tree_restrictions_tensor.restype = None
-
+        library.bb_table_value_tensor.restype = ctypes.c_void_p
         library.bb_table_restrictions_tensor.argtypes = [
-            ctypes.c_uint16,
-            size_t_array,
-            ctypes.c_size_t,
-            ctypes.c_size_t,
-            ctypes.c_uint64,
             ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_size_t,
+            ctypes.c_size_t,
         ]
-        library.bb_table_restrictions_tensor.restype = None
+        library.bb_table_restrictions_tensor.restype = ctypes.c_void_p
 
         library.bb_circuit_sets.argtypes = []
         library.bb_circuit_sets.restype = ctypes.c_char_p
-
         library.bb_circuit_cases.argtypes = [ctypes.c_char_p]
         library.bb_circuit_cases.restype = ctypes.c_char_p
-
         library.bb_circuit_inputs.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         library.bb_circuit_inputs.restype = ctypes.c_size_t
-
         library.bb_circuit_outputs.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         library.bb_circuit_outputs.restype = ctypes.c_size_t
-
         library.bb_circuit_value.argtypes = [
             ctypes.c_char_p,
             ctypes.c_char_p,
@@ -184,36 +331,63 @@ class Generator:
     def tree_cases_number(self, bitness: int) -> int:
         return int(self.library.bb_tree_cases_number(bitness))
 
+    def table_cases_number(self, bitness: int) -> int:
+        return int(self.library.bb_table_cases_number(bitness))
+
     def min_tree_bitness(self) -> int:
         return int(self.library.bb_min_tree_bitness())
 
-    def tree_nodes_tensor(
+    def table_solvable_bitness(self) -> int:
+        return int(self.library.bb_table_solvable_bitness())
+
+    def tree_value_tensor(
         self,
         bitness: int,
-        case_ids: Sequence[int],
-    ) -> np.ndarray:
-        return self._metric_tensor(
-            self.library.bb_tree_nodes_tensor,
+        cases: int,
+        reps: int,
+        seed: int,
+    ) -> GeneratedData:
+        handle = self.library.bb_tree_value_tensor(
+            self.context,
             bitness,
-            case_ids,
+            cases,
+            reps,
+            seed,
         )
+        assert handle
+        data = GeneratedData(self, handle, recursive_table=False)
+        self._remember(data)
+        return data
 
-    def tree_depth_tensor(
+    def table_value_tensor(
         self,
         bitness: int,
-        case_ids: Sequence[int],
-    ) -> np.ndarray:
-        return self._metric_tensor(
-            self.library.bb_tree_depth_tensor,
+        cases: int,
+        reps: int,
+        restriction_chunk_cases: int,
+        seed: int,
+    ) -> GeneratedData:
+        recursive = bitness > self.table_solvable_bitness()
+        assert (restriction_chunk_cases > 0) == recursive, (
             bitness,
-            case_ids,
+            restriction_chunk_cases,
         )
+        handle = self.library.bb_table_value_tensor(
+            self.context,
+            bitness,
+            cases,
+            reps,
+            restriction_chunk_cases,
+            seed,
+        )
+        assert handle
+        data = GeneratedData(self, handle, recursive_table=recursive)
+        self._remember(data)
+        return data
 
-    # Result shape: 2 * bitness + 1.
     def tree_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
         return self._value(self.library.bb_tree_value, bitness, case_id, input_bits)
 
-    # Result shape: len(input_bits) x (2 * bitness + 1).
     def tree_values(
         self,
         bitness: int,
@@ -222,71 +396,9 @@ class Generator:
     ) -> np.ndarray:
         return self._values(self.library.bb_tree_value, bitness, case_id, input_bits)
 
-    # Result shape: len(case_ids) x reps x (2 * bitness + 1).
-    def tree_value_tensor(
-        self,
-        bitness: int,
-        case_ids: Sequence[int],
-        reps: int,
-        seed: int,
-    ) -> np.ndarray:
-        return self._value_tensor(
-            self.library.bb_tree_value_tensor,
-            bitness,
-            case_ids,
-            reps,
-            seed,
-        )
-
-    # Result shape: len(case_ids) x (bitness * 2) x reps x (2 * bitness - 1).
-    def tree_restrictions_tensor(
-        self,
-        bitness: int,
-        case_ids: Sequence[int],
-        reps: int,
-        seed: int,
-    ) -> np.ndarray:
-        return self._restrictions_tensor(
-            self.library.bb_tree_restrictions_tensor,
-            bitness,
-            case_ids,
-            reps,
-            seed,
-        )
-
-    def table_cases_number(self, bitness: int) -> int:
-        return int(self.library.bb_table_cases_number(bitness))
-
-    def table_solvable_bitness(self) -> int:
-        return int(self.library.bb_table_solvable_bitness())
-
-    def table_nodes_tensor(
-        self,
-        bitness: int,
-        case_ids: Sequence[int],
-    ) -> np.ndarray:
-        return self._metric_tensor(
-            self.library.bb_table_nodes_tensor,
-            bitness,
-            case_ids,
-        )
-
-    def table_depth_tensor(
-        self,
-        bitness: int,
-        case_ids: Sequence[int],
-    ) -> np.ndarray:
-        return self._metric_tensor(
-            self.library.bb_table_depth_tensor,
-            bitness,
-            case_ids,
-        )
-
-    # Result shape: 2 * bitness + 1.
     def table_value(self, bitness: int, case_id: int, input_bits: str) -> np.ndarray:
         return self._value(self.library.bb_table_value, bitness, case_id, input_bits)
 
-    # Result shape: len(input_bits) x (2 * bitness + 1).
     def table_values(
         self,
         bitness: int,
@@ -294,38 +406,6 @@ class Generator:
         input_bits: Sequence[str],
     ) -> np.ndarray:
         return self._values(self.library.bb_table_value, bitness, case_id, input_bits)
-
-    # Result shape: len(case_ids) x reps x (2 * bitness + 1).
-    def table_value_tensor(
-        self,
-        bitness: int,
-        case_ids: Sequence[int],
-        reps: int,
-        seed: int,
-    ) -> np.ndarray:
-        return self._value_tensor(
-            self.library.bb_table_value_tensor,
-            bitness,
-            case_ids,
-            reps,
-            seed,
-        )
-
-    # Result shape: len(case_ids) x (bitness * 2) x reps x (2 * bitness - 1).
-    def table_restrictions_tensor(
-        self,
-        bitness: int,
-        case_ids: Sequence[int],
-        reps: int,
-        seed: int,
-    ) -> np.ndarray:
-        return self._restrictions_tensor(
-            self.library.bb_table_restrictions_tensor,
-            bitness,
-            case_ids,
-            reps,
-            seed,
-        )
 
     def _value(
         self,
@@ -352,93 +432,11 @@ class Generator:
             samples[row_id] = self._value(value_fn, bitness, case_id, bits)
         return samples
 
-    def _value_tensor(
-        self,
-        value_fn,
-        bitness: int,
-        case_ids: Sequence[int],
-        reps: int,
-        seed: int,
-    ) -> np.ndarray:
-        case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
-        assert case_ids_array.ndim == 1, case_ids_array.shape
-        assert len(case_ids_array) > 0, len(case_ids_array)
-        assert reps > 0, reps
-        assert reps % 2 == 0, reps
-
-        samples = np.empty(
-            (len(case_ids_array), reps, sample_point_dim(bitness)),
-            dtype=np.float32,
-        )
-        assert samples.flags["C_CONTIGUOUS"], samples.strides
-        value_fn(
-            bitness,
-            case_ids_array,
-            len(case_ids_array),
-            reps,
-            seed,
-            samples.ctypes.data,
-        )
-        return samples
-
-    def _metric_tensor(
-        self,
-        metric_fn,
-        bitness: int,
-        case_ids: Sequence[int],
-    ) -> np.ndarray:
-        case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
-        assert case_ids_array.ndim == 1, case_ids_array.shape
-        assert len(case_ids_array) > 0, len(case_ids_array)
-
-        values = np.empty(len(case_ids_array), dtype=np.float32)
-        assert values.flags["C_CONTIGUOUS"], values.strides
-        metric_fn(
-            bitness,
-            case_ids_array,
-            len(case_ids_array),
-            values.ctypes.data,
-        )
-        return values
-
-    def _restrictions_tensor(
-        self,
-        restrictions_fn,
-        bitness: int,
-        case_ids: Sequence[int],
-        reps: int,
-        seed: int,
-    ) -> np.ndarray:
-        case_ids_array = np.ascontiguousarray(case_ids, dtype=np.uintp)
-        assert case_ids_array.ndim == 1, case_ids_array.shape
-        assert len(case_ids_array) > 0, len(case_ids_array)
-        assert reps > 0, reps
-        assert reps % 2 == 0, reps
-
-        restrictions = bitness * 2
-        point_dim = restriction_point_dim(bitness)
-        samples = np.empty(
-            (len(case_ids_array), restrictions, reps, point_dim),
-            dtype=np.float32,
-        )
-        assert samples.flags["C_CONTIGUOUS"], samples.strides
-        restrictions_fn(
-            bitness,
-            case_ids_array,
-            len(case_ids_array),
-            reps,
-            seed,
-            samples.ctypes.data,
-        )
-        return samples
-
     def circuit_sets(self) -> list[str]:
         return _split_newlines(self.library.bb_circuit_sets())
 
     def circuit_cases(self, set_name: str) -> list[str]:
-        return _split_newlines(
-            self.library.bb_circuit_cases(set_name.encode("ascii"))
-        )
+        return _split_newlines(self.library.bb_circuit_cases(set_name.encode("ascii")))
 
     def circuit_inputs(self, set_name: str, case_name: str) -> int:
         return int(self.library.bb_circuit_inputs(
@@ -465,8 +463,8 @@ class Generator:
         return _ascii_bits_to_signed(value, point_dim)
 
 
-def load_generator() -> Generator:
-    return Generator(LIBRARY)
+def load_generator(workers: int = 1) -> Generator:
+    return Generator(LIBRARY, workers)
 
 
 def _ascii_bits_to_signed(value: bytes, expected_len: int) -> np.ndarray:

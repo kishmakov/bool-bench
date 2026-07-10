@@ -10,6 +10,31 @@
 extern "C" {
 #endif
 
+typedef struct bb_generator bb_generator;
+typedef struct bb_data bb_data;
+typedef struct bb_tensor bb_tensor;
+
+bb_generator* bb_generator_create(size_t workers);
+void bb_generator_destroy(bb_generator* generator);
+
+void bb_data_acquire(bb_data* data);
+uint16_t bb_data_bitness(const bb_data* data);
+size_t bb_data_cases(const bb_data* data);
+size_t bb_data_reps(const bb_data* data);
+// Transfers buffer ownership to the caller. The returned pointer must later be
+// passed to bb_float_buffer_destroy(). Each buffer may be taken exactly once.
+float* bb_data_take_values(bb_data* data);
+float* bb_data_take_targets(bb_data* data);
+void bb_data_release(bb_generator* generator, bb_data* data);
+
+void bb_tensor_acquire(bb_tensor* tensor);
+// Transfers buffer ownership to the caller. May be called exactly once.
+float* bb_tensor_take_values(bb_tensor* tensor);
+void bb_tensor_release(bb_generator* generator, bb_tensor* tensor);
+
+// Frees a float buffer transferred out of a data or tensor handle.
+void bb_float_buffer_destroy(float* buffer);
+
 /*******************************************************************************
  * There are 3 types of boolean functions served by this library.
  * 1: Backed by binary tree: `bb_tree_*`
@@ -40,41 +65,14 @@ size_t bb_tree_cases_number(uint16_t bitness);
 // followed by f(input with flipped i-th bit) [1 bit x bitness]
 const char* bb_tree_value(uint16_t bitness, size_t case_id, const char* input);
 
-// Input: case_ids array of length cases.
-// Inputs are generated deterministically from seed, bitness, and each case id.
-// Output: out has shape cases x reps x (2 * bitness + 1), stored row-major.
-void bb_tree_value_tensor(
+// Enqueues a C++-owned typed batch. Values have shape
+// cases x reps x (2 * bitness + 1); targets have shape cases.
+bb_data* bb_tree_value_tensor(
+    bb_generator* generator,
     uint16_t bitness,
-    const size_t* case_ids,
     size_t cases,
     size_t reps,
-    uint64_t seed,
-    float* out);
-
-// Input: case_ids array of length cases.
-// Output: out has shape cases and contains node counts or depths.
-void bb_tree_nodes_tensor(
-    uint16_t bitness,
-    const size_t* case_ids,
-    size_t cases,
-    float* out);
-void bb_tree_depth_tensor(
-    uint16_t bitness,
-    const size_t* case_ids,
-    size_t cases,
-    float* out);
-
-// Input: case_ids array of length cases.
-// For each case, fixes every input bit to 0 and 1 and generates reps inputs
-// for the remaining bits deterministically from seed, bitness, and case id.
-// Output: cases x (2 * bitness) x reps x (2 * bitness - 1) stored row-major.
-void bb_tree_restrictions_tensor(
-    uint16_t bitness,
-    const size_t* case_ids,
-    size_t cases,
-    size_t reps,
-    uint64_t seed,
-    float* out);
+    uint64_t seed);
 
 /********************************* 2nd type ***********************************/
 
@@ -89,41 +87,23 @@ size_t bb_table_cases_number(uint16_t bitness);
 // followed by f(input with flipped i-th bit) [1 bit x bitness]
 const char* bb_table_value(uint16_t bitness, size_t case_id, const char* input);
 
-// Input: case_ids array of length cases.
-// Inputs are generated deterministically from seed, bitness, and each case id.
-// Output: out has shape cases x reps x (2 * bitness + 1), stored row-major.
-void bb_table_value_tensor(
+// For bitness above bb_table_solvable_bitness(), targets are null and the
+// first restriction chunk is generated together with the values.
+bb_data* bb_table_value_tensor(
+    bb_generator* generator,
     uint16_t bitness,
-    const size_t* case_ids,
     size_t cases,
     size_t reps,
-    uint64_t seed,
-    float* out);
+    size_t restriction_chunk_cases,
+    uint64_t seed);
 
-// Input: case_ids array of length cases.
-// For each case, fixes every input bit to 0 and 1 and generates reps inputs
-// for the remaining bits deterministically from seed, bitness, and case id.
-// Output: cases x (2 * bitness) x reps x (2 * bitness - 1) stored row-major.
-void bb_table_restrictions_tensor(
-    uint16_t bitness,
-    const size_t* case_ids,
-    size_t cases,
-    size_t reps,
-    uint64_t seed,
-    float* out);
-
-// Input: case_ids array of length cases.
-// Output: out has shape cases and contains node counts or depths.
-void bb_table_nodes_tensor(
-    uint16_t bitness,
-    const size_t* case_ids,
-    size_t cases,
-    float* out);
-void bb_table_depth_tensor(
-    uint16_t bitness,
-    const size_t* case_ids,
-    size_t cases,
-    float* out);
+// Enqueues restrictions for a contiguous range of cases from recursive table
+// data. Output shape: cases x (2 * bitness) x reps x (2 * bitness - 1).
+bb_tensor* bb_table_restrictions_tensor(
+    bb_generator* generator,
+    bb_data* table_data,
+    size_t first_case,
+    size_t cases);
 
 /********************************* 3rd type ***********************************/
 

@@ -5,6 +5,8 @@ set(CMAKE_CXX_FLAGS_RELEASE_INIT "-O2 -DNDEBUG")
 
 project(deepcircus_bool_bench LANGUAGES C CXX)
 
+find_package(Threads REQUIRED)
+
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
@@ -30,6 +32,7 @@ add_library(bb
     src/aig.h
     src/decision_tree.cpp
     src/decision_tree.h
+    src/dataset.cpp
     src/bool_bench.cpp
     src/bool_bench.h
     src/table.h
@@ -41,4 +44,4 @@ add_library(bb
 )
 
 target_include_directories(bb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(bb PRIVATE aiger)
+target_link_libraries(bb PRIVATE aiger Threads::Threads)
